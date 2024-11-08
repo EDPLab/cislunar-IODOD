@@ -694,8 +694,8 @@ interval = hdR(idx_meas,c_meas) - hdR(idx_meas-1,c_meas);
 % t_end = tpr + l_filt*interval;
 % t_end = hdR(idx_meas + (l_filt - 1), c_meas); % Add small epsilon to avoid roundoff
 
-[idx_crit, ~] = find(abs(noised_obs(:,1) - cTimes(1)) < 1e-10); % Find the index of the last observation before the half-day gap
-t_end = noised_obs(idx_crit,1); % First observation of new pass + one more time step
+[idx_crit, ~] = find(abs(noised_obs(:,1) - cTimes(2)) < 1e-10); % Find the index of the last observation before the half-day gap
+t_end = noised_obs(idx_crit+5,1); % First observation of new pass + one more time step
 % t_end = cTimes(2);
 % l_filt = int32((t_end - tpr)/interval + 1); % Filter time length
 
@@ -707,12 +707,15 @@ t_end = noised_obs(idx_crit,1); % First observation of new pass + one more time 
 tau = 0;
 for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for easier propagation
 
-    % Propagation Step
-    Xp_cloud = [];
-    parfor i = 1:Lp
-        [Xp_cloud(i,:), ~] = drawFrom2(wp, mu_p, P_p); 
-    end 
+    % Resampling Step
+    if(idx_meas ~= 0)
+        Xp_cloud = Xm_cloud;
+        parfor i = 1:Lp
+            [Xp_cloud(i,:), ~] = drawFrom2(wp, mu_p, P_p); 
+        end 
+    end
 
+    % Propagation Step
     Xm_cloud = propagate(Xp_cloud, to, interval);
 
     % Verification Step
@@ -784,7 +787,7 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
         rto = [xto, yto, zto];
 
         legend_string = {};
-        for k = 1:K
+        parfor k = 1:K
             R_vv = [0.05*partial_ts(idx_meas,2), 0, 0; 0 7.2722e-6, 0; 0, 0, 7.2722e-6].^2;
             Hxk = linHx(mu_c{k}); % Linearize about prior mean component
             legend_string{k} = sprintf('Distribution %i',k);
@@ -1042,8 +1045,8 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
     
             plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(2), 'kx', ... 
                 'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string);
-            hold on;
-            plot(rto(1), rto(2), 'o', 'MarkerSize', 10, 'LineWidth', 3);
+            % hold on;
+            % plot(rto(1), rto(2), 'o', 'MarkerSize', 10, 'LineWidth', 3);
             title('X-Y');
             xlabel('X (km.)');
             ylabel('Y (km.)');
@@ -1063,8 +1066,8 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
             end
             plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(3), 'kx', ... 
                 'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string);
-            hold on;
-            plot(rto(1), rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
+            % hold on;
+            % plot(rto(1), rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
             title('X-Z');
             xlabel('X (km.)');
             ylabel('Z (km.)');
@@ -1088,8 +1091,8 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
             end
             plot(dist2km*Xprop_truth(2), dist2km*Xprop_truth(3), 'kx', ... 
                 'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string);
-            hold on;
-            plot(rto(2), rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
+            % hold on;
+            % plot(rto(2), rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
             title('Y-Z');
             xlabel('Y (km.)');
             ylabel('Z (km.)');
@@ -1887,6 +1890,10 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
         savefig(gcf, 'secondToLastEstimate.fig');
 
         K = Kn;
+    elseif(abs(tpr - cTimes(2)) < 1e-10)
+        Lp = 1000;
+    elseif(abs(tpr - cTimes(4)) < 1e-10)
+        Lp = 1500;
     end
 
 end
