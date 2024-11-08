@@ -521,7 +521,7 @@ end
 
 Xp_cloud = Xm_cloud;
 c_id = zeros(length(Xp_cloud(:,1)),1);
-for i = 1:L
+parfor i = 1:L
     [Xp_cloud(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
 end
 
@@ -709,7 +709,7 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
 
     % Propagation Step
     Xp_cloud = [];
-    for i = 1:Lp
+    parfor i = 1:Lp
         [Xp_cloud(i,:), ~] = drawFrom2(wp, mu_p, P_p); 
     end 
 
@@ -753,7 +753,7 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
         wm = zeros(K, 1); wp = wm;
 
         % Calculate covariances and weights for each cluster
-        for k = 1:K
+        parfor k = 1:K
             cluster_points = Xm_cloud(idx == k, :); 
             cPoints{k} = cluster_points; 
             mu_c{k} = mean(cluster_points, 1); % Cell of GMM means 
@@ -770,7 +770,7 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
 
         % Extract means
         mu_mExp = zeros(K,length(mu_c{1}));
-        for k = 1:K
+        parfor k = 1:K
             mu_mExp(k,:) = mu_c{k};
         end
 
@@ -793,330 +793,374 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
         % legend_string{K+1} = "Centroids";
         legend_string{K+1} = "Truth";
 
-        mu_mat = cell2mat(mu_c);
-        P_mat = cat(3, P_c{:});
-
-        f = figure('visible','off','Position', get(0,'ScreenSize'));
-        f.WindowState = 'maximized';
-
-        subplot(2,3,1)
-        plot_dims = [1,2];
-        mu_marg = mu_mat(:, plot_dims);
-        P_marg = P_mat(plot_dims, plot_dims, :);
-        
-        for k = 1:K
-            [X1, X2] = meshgrid(linspace(min(Xm_cloud(:,plot_dims(1))), max(Xm_cloud(:,plot_dims(1))), 100), ...
-                        linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
-            X_grid = [X1(:) X2(:)];
+        if(1) % Use for all time steps
+            % legend_string{K+1} = "Centroids";
+            legend_string{K+1} = "Truth";
+    
+            mu_mat = cell2mat(mu_c);
+            P_mat = cat(3, P_c{:});
+    
+            f = figure('visible','off','Position', get(0,'ScreenSize'));
+            f.WindowState = 'maximized';
+    
+            subplot(2,3,1)
+            plot_dims = [1,2];
+            mu_marg = mu_mat(:, plot_dims);
+            P_marg = P_mat(plot_dims, plot_dims, :);
             
-            Z = zeros(size(X1));
-            for i = 1:size(X_grid, 1)
-                Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
-            end
-            Z = reshape(Z, size(X1));
-            Z = Z/(2*pi*sqrt(det(P_marg(:,:,k))));
-            contour_levels = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
-
-            contour(X1, X2, Z, contour_levels, 'LineWidth', 2, 'LineColor', contourCols(k,:));
-            hold on;
-        end 
-        plot(Xprop_truth(1), Xprop_truth(2), 'kx','MarkerSize', 15, 'LineWidth', 3);
-        hold on;
-        plot(rto(1), rto(2), 'o', 'MarkerSize', 10, 'LineWidth', 3);
-        title('X-Y');
-        xlabel('X');
-        ylabel('Y');
-        legend(legend_string);
-        hold off;
-
-        subplot(2,3,2)
-        plot_dims = [1,3];
-        mu_marg = mu_mat(:, plot_dims);
-        P_marg = P_mat(plot_dims, plot_dims, :);
-        
-        for k = 1:K
             [X1, X2] = meshgrid(linspace(min(Xm_cloud(:,plot_dims(1))), max(Xm_cloud(:,plot_dims(1))), 100), ...
-                        linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
+                            linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
             X_grid = [X1(:) X2(:)];
+    
+            Z_cell = cell(K,1); contours_cell = cell(K,1); 
             
-            Z = zeros(size(X1));
-            for i = 1:size(X_grid, 1)
-                Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
-            end
-            Z = reshape(Z, size(X1));
-            Z = Z/(2*pi*sqrt(det(P_marg(:,:,k))));
-            contour_levels = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
-
-            contour(X1, X2, Z, contour_levels, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+            parfor k = 1:K
+                Z = zeros(size(X1));
+                for i = 1:size(X_grid, 1)
+                    Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
+                end
+                Z = reshape(Z, size(X1));
+                Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
+                contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+            end 
+    
             hold on;
-        end 
-        plot(Xprop_truth(1), Xprop_truth(3), 'kx','MarkerSize', 15, 'LineWidth', 3);
-        hold on;
-        plot(rto(1), rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
-        title('X-Z');
-        xlabel('X');
-        ylabel('Z');
-        legend(legend_string);
-        hold off;
-
-        subplot(2,3,3)
-        plot_dims = [2,3];
-        mu_marg = mu_mat(:, plot_dims);
-        P_marg = P_mat(plot_dims, plot_dims, :);
-        
-        for k = 1:K
+            for k = 1:K
+                contour(dist2km*X1, dist2km*X2, dist2km*Z_cell{k}, dist2km*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+            end    
+            plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(2), 'kx','MarkerSize', 15, 'LineWidth', 3);
+            % hold on;
+            % plot(rto(1), rto(2), 'o', 'MarkerSize', 10, 'LineWidth', 3);
+            title('X-Y');
+            xlabel('X (km.)');
+            ylabel('Y (km.)');
+            legend(legend_string);
+            hold off;
+    
+            subplot(2,3,2)
+            plot_dims = [1,3];
+            mu_marg = mu_mat(:, plot_dims);
+            P_marg = P_mat(plot_dims, plot_dims, :);
+            
             [X1, X2] = meshgrid(linspace(min(Xm_cloud(:,plot_dims(1))), max(Xm_cloud(:,plot_dims(1))), 100), ...
-                        linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
+                            linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
             X_grid = [X1(:) X2(:)];
+    
+            Z_cell = cell(K,1); contours_cell = cell(K,1); 
             
-            Z = zeros(size(X1));
-            for i = 1:size(X_grid, 1)
-                Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
-            end
-            Z = reshape(Z, size(X1));
-            Z = Z/(2*pi*sqrt(det(P_marg(:,:,k))));
-            contour_levels = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
-
-            contour(X1, X2, Z, contour_levels, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+            parfor k = 1:K
+                Z = zeros(size(X1));
+                for i = 1:size(X_grid, 1)
+                    Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
+                end
+                Z = reshape(Z, size(X1));
+                Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
+                contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+            end 
+            
             hold on;
-        end 
-        plot(Xprop_truth(2), Xprop_truth(3), 'kx','MarkerSize', 15, 'LineWidth', 3);
-        hold on;
-        plot(rto(2), rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
-        title('X-Z');
-        xlabel('X');
-        ylabel('Z');
-        legend(legend_string);
-        hold off;
-
-        subplot(2,3,4)
-        plot_dims = [4,5];
-        mu_marg = mu_mat(:, plot_dims);
-        P_marg = P_mat(plot_dims, plot_dims, :);
-        
-        for k = 1:K
+            for k = 1:K
+                contour(dist2km*X1, dist2km*X2, dist2km*Z_cell{k}, dist2km*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+            end    
+            plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(3), 'kx','MarkerSize', 15, 'LineWidth', 3);
+            % hold on;
+            % plot(rto(1), rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
+            title('X-Z');
+            xlabel('X (km.)');
+            ylabel('Z (km.)');
+            legend(legend_string);
+            hold off;
+    
+            subplot(2,3,3)
+            plot_dims = [2,3];
+            mu_marg = mu_mat(:, plot_dims);
+            P_marg = P_mat(plot_dims, plot_dims, :);
+            
             [X1, X2] = meshgrid(linspace(min(Xm_cloud(:,plot_dims(1))), max(Xm_cloud(:,plot_dims(1))), 100), ...
-                        linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
+                            linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
             X_grid = [X1(:) X2(:)];
+    
+            Z_cell = cell(K,1); contours_cell = cell(K,1); 
             
-            Z = zeros(size(X1));
-            for i = 1:size(X_grid, 1)
-                Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
-            end
-            Z = reshape(Z, size(X1));
-            Z = Z/(2*pi*sqrt(det(P_marg(:,:,k))));
-            contour_levels = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
-
-            contour(X1, X2, Z, contour_levels, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+            parfor k = 1:K
+                Z = zeros(size(X1));
+                for i = 1:size(X_grid, 1)
+                    Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
+                end
+                Z = reshape(Z, size(X1));
+                Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
+                contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+            end 
+            
             hold on;
-        end 
-        plot(Xprop_truth(4), Xprop_truth(5), 'kx','MarkerSize', 15, 'LineWidth', 3);
-        title('Xdot-Ydot');
-        xlabel('Xdot');
-        ylabel('Ydot');
-        legend(legend_string);
-        hold off;
-
-        subplot(2,3,5)
-        plot_dims = [4,6];
-        mu_marg = mu_mat(:, plot_dims);
-        P_marg = P_mat(plot_dims, plot_dims, :);
-        
-        for k = 1:K
+            for k = 1:K
+                contour(dist2km*X1, dist2km*X2, dist2km*Z_cell{k}, dist2km*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+            end    
+            plot(dist2km*Xprop_truth(2), dist2km*Xprop_truth(3), 'kx','MarkerSize', 15, 'LineWidth', 3);
+            % hold on;
+            % plot(rto(2), rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
+            title('X-Z');
+            xlabel('X (km.)');
+            ylabel('Z (km.)');
+            legend(legend_string);
+            hold off;
+    
+            subplot(2,3,4)
+            plot_dims = [4,5];
+            mu_marg = mu_mat(:, plot_dims);
+            P_marg = P_mat(plot_dims, plot_dims, :);
+            
             [X1, X2] = meshgrid(linspace(min(Xm_cloud(:,plot_dims(1))), max(Xm_cloud(:,plot_dims(1))), 100), ...
-                        linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
+                            linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
             X_grid = [X1(:) X2(:)];
+    
+            Z_cell = cell(K,1); contours_cell = cell(K,1); 
             
-            Z = zeros(size(X1));
-            for i = 1:size(X_grid, 1)
-                Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
-            end
-            Z = reshape(Z, size(X1));
-            Z = Z/(2*pi*sqrt(det(P_marg(:,:,k))));
-            contour_levels = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
-
-            contour(X1, X2, Z, contour_levels, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+            parfor k = 1:K
+                Z = zeros(size(X1));
+                for i = 1:size(X_grid, 1)
+                    Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
+                end
+                Z = reshape(Z, size(X1));
+                Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
+                contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+            end 
+            
             hold on;
-        end 
-        plot(Xprop_truth(4), Xprop_truth(6), 'kx','MarkerSize', 15, 'LineWidth', 3);
-        title('Xdot-Zdot');
-        xlabel('Xdot');
-        ylabel('Zdot');
-        legend(legend_string);
-        hold off;
-
-        subplot(2,3,6)
-        plot_dims = [5,6];
-        mu_marg = mu_mat(:, plot_dims);
-        P_marg = P_mat(plot_dims, plot_dims, :);
-        
-        for k = 1:K
+            for k = 1:K
+                contour(vel2kms*X1, vel2kms*X2, vel2kms*Z_cell{k}, vel2kms*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+            end    
+            plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(5), 'kx','MarkerSize', 15, 'LineWidth', 3);
+            title('Xdot-Ydot');
+            xlabel('Xdot (km/s)');
+            ylabel('Ydot (km/s)');
+            legend(legend_string);
+            hold off;
+    
+            subplot(2,3,5)
+            plot_dims = [4,6];
+            mu_marg = mu_mat(:, plot_dims);
+            P_marg = P_mat(plot_dims, plot_dims, :);
+            
             [X1, X2] = meshgrid(linspace(min(Xm_cloud(:,plot_dims(1))), max(Xm_cloud(:,plot_dims(1))), 100), ...
-                        linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
+                            linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
             X_grid = [X1(:) X2(:)];
+    
+            Z_cell = cell(K,1); contours_cell = cell(K,1); 
             
-            Z = zeros(size(X1));
-            for i = 1:size(X_grid, 1)
-                Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
+            parfor k = 1:K
+                Z = zeros(size(X1));
+                for i = 1:size(X_grid, 1)
+                    Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
+                end
+                Z = reshape(Z, size(X1));
+                Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
+                contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+            end 
+            
+            hold on;
+            for k = 1:K
+                contour(vel2kms*X1, vel2kms*X2, vel2kms*Z_cell{k}, vel2kms*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+            end    
+            plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(6), 'kx','MarkerSize', 15, 'LineWidth', 3);
+            title('Xdot-Zdot');
+            xlabel('Xdot (km/s)');
+            ylabel('Zdot (km/s)');
+            legend(legend_string);
+            hold off;
+    
+            subplot(2,3,6)
+            plot_dims = [5,6];
+            mu_marg = mu_mat(:, plot_dims);
+            P_marg = P_mat(plot_dims, plot_dims, :);
+            
+            [X1, X2] = meshgrid(linspace(min(Xm_cloud(:,plot_dims(1))), max(Xm_cloud(:,plot_dims(1))), 100), ...
+                            linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
+            X_grid = [X1(:) X2(:)];
+    
+            Z_cell = cell(K,1); contours_cell = cell(K,1); 
+            
+            parfor k = 1:K
+                Z = zeros(size(X1));
+                for i = 1:size(X_grid, 1)
+                    Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
+                end
+                Z = reshape(Z, size(X1));
+                Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
+                contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+            end 
+            
+            hold on;
+            for k = 1:K
+                contour(vel2kms*X1, vel2kms*X2, vel2kms*Z_cell{k}, vel2kms*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+            end    
+            plot(vel2kms*Xprop_truth(5), vel2kms*Xprop_truth(6), 'kx','MarkerSize', 15, 'LineWidth', 3);
+            title('Ydot-Zdot');
+            xlabel('Ydot (km/s)');
+            ylabel('Zdot (km/s)');
+            legend(legend_string);
+            hold off;
+    
+            sgt = sprintf('Timestep: %3.4f Hours (Prior)', tpr*time2hr);
+            sgtitle(sgt);
+    
+            sg = sprintf('./Simulations/Timestep_%i_1A.png', tau);
+            % sg = sprintf('./Simulations/Different Orbit Simulations/Timestep_%i_1A.png', tau);
+            saveas(f, sg, 'png');
+            close(f);
+    
+            f = figure('visible','off','Position', get(0,'ScreenSize'));
+            f.WindowState = 'maximized';
+    
+            %{
+            legend_string = {};
+            parfor k = 1:K
+                % legend_string{k} = sprintf('Contour %i', k);
+                legend_string{k} = sprintf('\\omega = %1.4f', wm(k));
             end
-            Z = reshape(Z, size(X1));
-            Z = Z/(2*pi*sqrt(det(P_marg(:,:,k))));
-            contour_levels = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
-
-            contour(X1, X2, Z, contour_levels, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+            % legend_string{K+1} = "Centroids";
+            legend_string{K+1} = "Truth";
+            %}
+    
+            legend_string = "Truth";
+    
+            subplot(2,3,1)
+            % gscatter(Xm_cloud(:,1), Xm_cloud(:,2), idx);
+            % hold on;
+            % plot(mu_mExp(:,1), mu_mExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
+            % hold on;
+    
+            parfor k = 1:K
+                cPoints{k} = Xm_cloud(idx == k, :);
+                mu_mExp(k,:) = mu_c{k};
+            end
+            hold on; 
+            for k = 1:K
+                scatter(dist2km*cPoints{k}(:,1), dist2km*cPoints{k}(:,2), 'filled', ...
+                'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+            end
+    
+            plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(2), 'kx', ... 
+                'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string);
             hold on;
-        end 
-        plot(Xprop_truth(5), Xprop_truth(6), 'kx','MarkerSize', 15, 'LineWidth', 3);
-        title('Ydot-Zdot');
-        xlabel('Ydot');
-        ylabel('Zdot');
-        legend(legend_string);
-        hold off;
-
-        sgt = sprintf('Timestep: %1.5f Hours (Prior)', tpr*time2hr);
-        sgtitle(sgt);
-
-        sg = sprintf('./Simulations/Timestep_%i_1A.png', tau);
-        saveas(f, sg, 'png');
-        close(f);
-
-        f = figure('visible','off','Position', get(0,'ScreenSize'));
-        f.WindowState = 'maximized';
-
-        legend_string = {};
-        for k = 1:K
-            % legend_string{k} = sprintf('Contour %i', k);
-            legend_string{k} = sprintf('\\omega = %1.4f', wm(k));
-        end
-        % legend_string{K+1} = "Centroids";
-        legend_string{K+1} = "Truth";
-
-        subplot(2,3,1)
-        % gscatter(Xm_cloud(:,1), Xm_cloud(:,2), idx);
-        % hold on;
-        % plot(mu_mExp(:,1), mu_mExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
-        % hold on;
-
-        for k = 1:K
-            clusterPoints = Xm_cloud(idx == k, :);
-            mu_pExp(k,:) = mu_c{k};
-            scatter(clusterPoints(:,1), clusterPoints(:,2), 'filled', 'MarkerFaceColor', colors(k));
+            plot(rto(1), rto(2), 'o', 'MarkerSize', 10, 'LineWidth', 3);
+            title('X-Y');
+            xlabel('X (km.)');
+            ylabel('Y (km.)');
+            legend(legend_string);
+            hold off;
+            
+            subplot(2,3,2)
+            
+            parfor k = 1:K
+                cPoints{k} = Xm_cloud(idx == k, :);
+                mu_mExp(k,:) = mu_c{k};
+            end
+            hold on; 
+            for k = 1:K
+                scatter(dist2km*cPoints{k}(:,1), dist2km*cPoints{k}(:,3), 'filled', ...
+                'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+            end
+            plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(3), 'kx', ... 
+                'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string);
             hold on;
-        end
-        plot(Xprop_truth(1), Xprop_truth(2), 'kx','MarkerSize', 15, 'LineWidth', 3);
-        hold on;
-        plot(rto(1), rto(2), 'o', 'MarkerSize', 10, 'LineWidth', 3);
-        title('X-Y');
-        xlabel('X');
-        ylabel('Y');
-        legend(legend_string);
-        hold off;
-        
-        subplot(2,3,2)
-        % gscatter(Xm_cloud(:,1), Xm_cloud(:,3), idx);
-        % hold on;
-        % plot(mu_mExp(:,1), mu_mExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
-        % hold on;
-        
-        for k = 1:K
-            clusterPoints = Xm_cloud(idx == k, :);
-            mu_pExp(k,:) = mu_c{k};
-            scatter(clusterPoints(:,1), clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
+            plot(rto(1), rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
+            title('X-Z');
+            xlabel('X (km.)');
+            ylabel('Z (km.)');
+            legend(legend_string);
+            hold off;
+            
+            subplot(2,3,3)
+            % gscatter(Xm_cloud(:,2), Xm_cloud(:,3), idx);
+            % hold on;
+            % plot(mu_mExp(:,2), mu_mExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
+            % hold on;
+            
+            parfor k = 1:K
+                cPoints{k} = Xm_cloud(idx == k, :);
+                mu_mExp(k,:) = mu_c{k};
+            end
+            hold on; 
+            for k = 1:K
+                scatter(dist2km*cPoints{k}(:,2), dist2km*cPoints{k}(:,3), 'filled', ...
+                'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+            end
+            plot(dist2km*Xprop_truth(2), dist2km*Xprop_truth(3), 'kx', ... 
+                'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string);
             hold on;
+            plot(rto(2), rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
+            title('Y-Z');
+            xlabel('Y (km.)');
+            ylabel('Z (km.)');
+            legend(legend_string);
+            hold off;
+            
+            subplot(2,3,4)
+            
+            parfor k = 1:K
+                cPoints{k} = Xm_cloud(idx == k, :);
+                mu_mExp(k,:) = mu_c{k};
+            end
+            hold on; 
+            for k = 1:K
+                scatter(vel2kms*cPoints{k}(:,4), vel2kms*cPoints{k}(:,5), 'filled', ...
+                'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+            end
+            plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(5), 'kx', ... 
+                'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string);
+            title('Xdot-Ydot');
+            xlabel('Xdot (km/s)');
+            ylabel('Ydot (km/s)');
+            legend(legend_string);
+            hold off;
+            
+            subplot(2,3,5)
+            
+            parfor k = 1:K
+                cPoints{k} = Xm_cloud(idx == k, :);
+                mu_mExp(k,:) = mu_c{k};
+            end
+            hold on; 
+            for k = 1:K
+                scatter(vel2kms*cPoints{k}(:,4), vel2kms*cPoints{k}(:,6), 'filled', ...
+                'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+            end
+            plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(6), 'kx', ... 
+                'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string);
+            title('Xdot-Zdot');
+            xlabel('Xdot (km/s)');
+            ylabel('Zdot (km/s)');
+            legend(legend_string);
+            hold off;
+            
+            subplot(2,3,6)
+    
+            parfor k = 1:K
+                cPoints{k} = Xm_cloud(idx == k, :);
+                mu_mExp(k,:) = mu_c{k};
+            end
+            hold on; 
+            for k = 1:K
+                scatter(vel2kms*cPoints{k}(:,5), vel2kms*cPoints{k}(:,6), 'filled', ...
+                'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+            end
+            plot(vel2kms*Xprop_truth(5), vel2kms*Xprop_truth(6), 'kx', ... 
+                'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string);
+            title('Ydot-Zdot');
+            xlabel('Ydot (km/s)');
+            ylabel('Zdot (km/s)');
+            legend(legend_string);
+            hold off;
+    
+            sgt = sprintf('Timestep: %3.4f Hours (Prior)', tpr*time2hr);
+            sgtitle(sgt);
+    
+            sg = sprintf('./Simulations/Timestep_%i_1B.png', tau);
+            % sg = sprintf('./Simulations/Different Orbit Simulations/Timestep_%i_1B.png', tau);
+            saveas(f, sg, 'png');
+            close(f);
         end
-        plot(Xprop_truth(1), Xprop_truth(3), 'kx','MarkerSize', 15, 'LineWidth', 3);
-        hold on;
-        plot(rto(1), rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
-        title('X-Z');
-        xlabel('X');
-        ylabel('Z');
-        legend(legend_string);
-        hold off;
-        
-        subplot(2,3,3)
-        % gscatter(Xm_cloud(:,2), Xm_cloud(:,3), idx);
-        % hold on;
-        % plot(mu_mExp(:,2), mu_mExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
-        % hold on;
-        
-        for k = 1:K
-            clusterPoints = Xm_cloud(idx == k, :);
-            mu_pExp(k,:) = mu_c{k};
-            scatter(clusterPoints(:,2), clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
-            hold on;
-        end
-        plot(Xprop_truth(2), Xprop_truth(3), 'kx','MarkerSize', 15, 'LineWidth', 3);
-        hold on;
-        plot(rto(2), rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
-        title('Y-Z');
-        xlabel('Y');
-        ylabel('Z');
-        legend(legend_string);
-        hold off;
-        
-        subplot(2,3,4)
-        % gscatter(Xm_cloud(:,4), Xm_cloud(:,5), idx);
-        % hold on;
-        % plot(mu_mExp(:,4), mu_mExp(:,5), '+', 'MarkerSize', 10, 'LineWidth', 3);
-        % hold on;
-        
-        for k = 1:K
-            clusterPoints = Xm_cloud(idx == k, :);
-            mu_pExp(k,:) = mu_c{k};
-            scatter(clusterPoints(:,4), clusterPoints(:,5), 'filled', 'MarkerFaceColor', colors(k));
-            hold on;
-        end
-        plot(Xprop_truth(4), Xprop_truth(5), 'kx','MarkerSize', 15, 'LineWidth', 3)
-        title('Xdot-Ydot');
-        xlabel('Xdot');
-        ylabel('Ydot');
-        legend(legend_string);
-        hold off;
-        
-        subplot(2,3,5)
-        % gscatter(Xm_cloud(:,4), Xm_cloud(:,6), idx);
-        % hold on;
-        % plot(mu_mExp(:,4), mu_mExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
-        % hold on;
-        
-        for k = 1:K
-            clusterPoints = Xm_cloud(idx == k, :);
-            mu_pExp(k,:) = mu_c{k};
-            scatter(clusterPoints(:,4), clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
-            hold on;
-        end
-        plot(Xprop_truth(4), Xprop_truth(6), 'kx','MarkerSize', 15, 'LineWidth', 3)
-        title('Xdot-Zdot');
-        xlabel('Xdot');
-        ylabel('Zdot');
-        legend(legend_string);
-        hold off;
-        
-        subplot(2,3,6)
-        % gscatter(Xm_cloud(:,5), Xm_cloud(:,6), idx);
-        % hold on;
-        % plot(mu_mExp(:,5), mu_mExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
-        % hold on;
-       
-        for k = 1:K
-            clusterPoints = Xm_cloud(idx == k, :);
-            mu_pExp(k,:) = mu_c{k};
-            scatter(clusterPoints(:,5), clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
-            hold on;
-        end
-        plot(Xprop_truth(5), Xprop_truth(6), 'kx','MarkerSize', 15, 'LineWidth', 3)
-        title('Ydot-Zdot');
-        xlabel('Ydot');
-        ylabel('Zdot');
-        legend(legend_string);
-        hold off;
-
-        sgt = sprintf('Timestep: %1.5f (Prior) Hours', tpr*time2hr);
-        sgtitle(sgt);
-
-        sg = sprintf('./Simulations/Timestep_%i_1B.png', tau);
-        saveas(f, sg, 'png');
-        close(f);
   
         if(abs(to - (t_end-interval)) < 1e-10) % At final time step possible
             % Save the a priori estimate particle cloud
@@ -1143,74 +1187,74 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
             % Plot planar projections
             figure(8)
             subplot(2,3,1)
-            gscatter(Xm_cloud(:,1), Xm_cloud(:,2), idx);
+            gscatter(dist2km*Xm_cloud(:,1), dist2km*Xm_cloud(:,2), idx);
             hold on;
-            plot(mu_mExp(:,1), mu_mExp(:,2), '+', 'MarkerSize', 10, 'LineWidth', 3);
+            plot(dist2km*mu_mExp(:,1), dist2km*mu_mExp(:,2), '+', 'MarkerSize', 10, 'LineWidth', 3);
             hold on;
-            plot(Xprop_truth(1), Xprop_truth(2), 'kx','MarkerSize', 15, 'LineWidth', 3);
+            plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(2), 'kx','MarkerSize', 15, 'LineWidth', 3);
             title('X-Y');
-            xlabel('X');
-            ylabel('Y');
+            xlabel('X (km.)');
+            ylabel('Y (km.)');
             legend(legend_string);
             hold off;
             
             subplot(2,3,2)
-            gscatter(Xm_cloud(:,1), Xm_cloud(:,3), idx);
+            gscatter(dist2km*Xm_cloud(:,1), dist2km*Xm_cloud(:,3), idx);
             hold on;
-            plot(mu_mExp(:,1), mu_mExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
+            plot(dist2km*mu_mExp(:,1), dist2km*mu_mExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
             hold on;
-            plot(Xprop_truth(1), Xprop_truth(3), 'kx','MarkerSize', 15, 'LineWidth', 3);
+            plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(3), 'kx','MarkerSize', 15, 'LineWidth', 3);
             title('X-Z');
-            xlabel('X');
-            ylabel('Z');
+            xlabel('X (km.)');
+            ylabel('Z (km.)');
             legend(legend_string);
             hold off;
             
             subplot(2,3,3)
-            gscatter(Xm_cloud(:,2), Xm_cloud(:,3), idx);
+            gscatter(dist2km*Xm_cloud(:,2), dist2km*Xm_cloud(:,3), idx);
             hold on;
-            plot(mu_mExp(:,2), mu_mExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
+            plot(dist2km*mu_mExp(:,2), dist2km*mu_mExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
             hold on;
-            plot(Xprop_truth(2), Xprop_truth(3), 'kx','MarkerSize', 15, 'LineWidth', 3);
+            plot(dist2km*Xprop_truth(2), dist2km*Xprop_truth(3), 'kx','MarkerSize', 15, 'LineWidth', 3);
             title('Y-Z');
-            xlabel('Y');
-            ylabel('Z');
+            xlabel('Y (km.)');
+            ylabel('Z (km.)');
             legend(legend_string);
             hold off;
             
             subplot(2,3,4)
-            gscatter(Xm_cloud(:,4), Xm_cloud(:,5), idx);
+            gscatter(vel2kms*Xm_cloud(:,4), vel2kms*Xm_cloud(:,5), idx);
             hold on;
-            plot(mu_mExp(:,4), mu_mExp(:,5), '+', 'MarkerSize', 10, 'LineWidth', 3);
+            plot(vel2kms*mu_mExp(:,4), vel2kms*mu_mExp(:,5), '+', 'MarkerSize', 10, 'LineWidth', 3);
             hold on;
-            plot(Xprop_truth(4), Xprop_truth(5), 'kx','MarkerSize', 15, 'LineWidth', 3)
+            plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(5), 'kx','MarkerSize', 15, 'LineWidth', 3)
             title('Xdot-Ydot');
-            xlabel('Xdot');
-            ylabel('Ydot');
+            xlabel('Xdot (km/s)');
+            ylabel('Ydot (km/s)');
             legend(legend_string);
             hold off;
             
             subplot(2,3,5)
-            gscatter(Xm_cloud(:,4), Xm_cloud(:,6), idx);
+            gscatter(vel2kms*Xm_cloud(:,4), vel2kms*Xm_cloud(:,6), idx);
             hold on;
-            plot(mu_mExp(:,4), mu_mExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
+            plot(vel2kms*mu_mExp(:,4), vel2kms*mu_mExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
             hold on;
-            plot(Xprop_truth(4), Xprop_truth(6), 'kx','MarkerSize', 15, 'LineWidth', 3)
+            plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(6), 'kx','MarkerSize', 15, 'LineWidth', 3)
             title('Xdot-Zdot');
-            xlabel('Xdot');
-            ylabel('Zdot');
+            xlabel('Xdot (km/s)');
+            ylabel('Zdot (km/s)');
             legend(legend_string);
             hold off;
             
             subplot(2,3,6)
-            gscatter(Xm_cloud(:,5), Xm_cloud(:,6), idx);
+            gscatter(vel2kms*Xm_cloud(:,5), vel2kms*Xm_cloud(:,6), idx);
             hold on;
-            plot(mu_mExp(:,5), mu_mExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
+            plot(vel2kms*mu_mExp(:,5), vel2kms*mu_mExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
             hold on;
-            plot(Xprop_truth(5), Xprop_truth(6), 'kx','MarkerSize', 15, 'LineWidth', 3)
+            plot(vel2kms*Xprop_truth(5), vel2kms*Xprop_truth(6), 'kx','MarkerSize', 15, 'LineWidth', 3)
             title('Ydot-Zdot');
-            xlabel('Ydot');
-            ylabel('Zdot');
+            xlabel('Ydot (km/s)');
+            ylabel('Zdot (km/s)');
             legend(legend_string);
             hold off;
             savefig(gcf, 'postClusteringDistribution.fig');
@@ -1253,7 +1297,7 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
 
     Xp_cloudp = zeros(L, length(Xprop_truth));
     c_id = zeros(L,1);
-    for i = 1:L
+    parfor i = 1:L
         [Xp_cloudp(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
     end
 
@@ -1266,310 +1310,367 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
         K = 1;
     end
 
-    % Extract means
-    mu_pExp = zeros(K, length(mu_p{1}));
-    for k = 1:K
-        mu_pExp(k,:) = mu_p{k};
-    end
+    if(1)
 
-    legend_string = {};
-    for k = 1:K
-        legend_string{k} = sprintf('Contour %i', k);
-        % legend_string{K+k} = sprintf('\\omega = %1.4f', wp(k));
-    end
-    % legend_string{K+1} = "Centroids";
-    legend_string{K+1} = "Truth";
+        % [idx_trth, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
+        % Xprop_truth = [full_ts(idx_trth,2:4), full_vts(idx_trth,2:4)];
 
-    mu_mat = mu_pExp;
-    P_mat = cat(3, P_p{:});
-
-    f = figure('visible','off','Position', get(0,'ScreenSize'));
-    f.WindowState = 'maximized';
-
-    subplot(2,3,1)
-    plot_dims = [1,2];
-    mu_marg = mu_mat(:, plot_dims);
-    P_marg = P_mat(plot_dims, plot_dims, :);
-
-    for k = 1:K
-        [X1, X2] = meshgrid(linspace(min(Xm_cloud(:,plot_dims(1))), max(Xm_cloud(:,plot_dims(1))), 100), ...
-                    linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
-        X_grid = [X1(:) X2(:)];
-        
-        Z = zeros(size(X1));
-        for i = 1:size(X_grid, 1)
-            Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
+        % Extract means
+        mu_pExp = zeros(K, length(mu_p{1}));
+        parfor k = 1:K
+            mu_pExp(k,:) = mu_p{k};
         end
-        Z = reshape(Z, size(X1));
-        Z = Z/(2*pi*sqrt(det(P_marg(:,:,k))));
-        contour_levels = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
-
-        contour(X1, X2, Z, contour_levels, 'LineWidth', 2, 'LineColor', contourCols(k,:));
-        hold on;
-    end
-    plot(Xprop_truth(1), Xprop_truth(2), 'kx','MarkerSize', 20, 'LineWidth', 3)
-    title('X-Y');
-    xlabel('X');
-    ylabel('Y');
-    legend(legend_string);
-    hold off;
-
-    subplot(2,3,2)
-    plot_dims = [1,3];
-    mu_marg = mu_mat(:, plot_dims);
-    P_marg = P_mat(plot_dims, plot_dims, :);
-
-    for k = 1:K
-        [X1, X2] = meshgrid(linspace(min(Xm_cloud(:,plot_dims(1))), max(Xm_cloud(:,plot_dims(1))), 100), ...
-                    linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
-        X_grid = [X1(:) X2(:)];
-        
-        Z = zeros(size(X1));
-        for i = 1:size(X_grid, 1)
-            Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
-        end
-        Z = reshape(Z, size(X1));
-        Z = Z/(2*pi*sqrt(det(P_marg(:,:,k))));
-        contour_levels = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
-
-        contour(X1, X2, Z, contour_levels, 'LineWidth', 2, 'LineColor', contourCols(k,:));
-        hold on;
-    end 
-    plot(Xprop_truth(1), Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
-    title('X-Z');
-    xlabel('X');
-    ylabel('Z');
-    legend(legend_string);
-    hold off;
-
-    subplot(2,3,3)
-    plot_dims = [2,3];
-    mu_marg = mu_mat(:, plot_dims);
-    P_marg = P_mat(plot_dims, plot_dims, :);
-
-    for k = 1:K
-        [X1, X2] = meshgrid(linspace(min(Xm_cloud(:,plot_dims(1))), max(Xm_cloud(:,plot_dims(1))), 100), ...
-                    linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
-        X_grid = [X1(:) X2(:)];
-        
-        Z = zeros(size(X1));
-        for i = 1:size(X_grid, 1)
-            Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
-        end
-        Z = reshape(Z, size(X1));
-        Z = Z/(2*pi*sqrt(det(P_marg(:,:,k))));
-        contour_levels = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
-
-        contour(X1, X2, Z, contour_levels, 'LineWidth', 2, 'LineColor', contourCols(k,:));
-        hold on;
-    end 
-    plot(Xprop_truth(2), Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
-    title('Y-Z');
-    xlabel('Y');
-    ylabel('Z');
-    legend(legend_string);
-    hold off;
-
-    subplot(2,3,4)
-    plot_dims = [4,5];
-    mu_marg = mu_mat(:, plot_dims);
-    P_marg = P_mat(plot_dims, plot_dims, :);
-
-    for k = 1:K
-        [X1, X2] = meshgrid(linspace(min(Xm_cloud(:,plot_dims(1))), max(Xm_cloud(:,plot_dims(1))), 100), ...
-                    linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
-        X_grid = [X1(:) X2(:)];
-        
-        Z = zeros(size(X1));
-        for i = 1:size(X_grid, 1)
-            Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
-        end
-        Z = reshape(Z, size(X1));
-        Z = Z/(2*pi*sqrt(det(P_marg(:,:,k))));
-        contour_levels = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
-
-        contour(X1, X2, Z, contour_levels, 'LineWidth', 2, 'LineColor', contourCols(k,:));
-        hold on;
-    end 
-    plot(Xprop_truth(4), Xprop_truth(5), 'kx','MarkerSize', 20, 'LineWidth', 3)
-    title('Xdot-Ydot');
-    xlabel('Xdot');
-    ylabel('Ydot');
-    legend(legend_string);
-    hold off;
-
-    subplot(2,3,5)
-    plot_dims = [4,6];
-    mu_marg = mu_mat(:, plot_dims);
-    P_marg = P_mat(plot_dims, plot_dims, :);
-
-    for k = 1:K
-        [X1, X2] = meshgrid(linspace(min(Xm_cloud(:,plot_dims(1))), max(Xm_cloud(:,plot_dims(1))), 100), ...
-                    linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
-        X_grid = [X1(:) X2(:)];
-        
-        Z = zeros(size(X1));
-        for i = 1:size(X_grid, 1)
-            Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
-        end
-        Z = reshape(Z, size(X1));
-        Z = Z/(2*pi*sqrt(det(P_marg(:,:,k))));
-        contour_levels = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
-
-        contour(X1, X2, Z, contour_levels, 'LineWidth', 2, 'LineColor', contourCols(k,:));
-        hold on;
-    end 
-    plot(Xprop_truth(4), Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
-    title('Xdot-Zdot');
-    xlabel('Xdot');
-    ylabel('Zdot');
-    legend(legend_string);
-    hold off;
-
-    subplot(2,3,6)
-    plot_dims = [5,6];
-    mu_marg = mu_mat(:, plot_dims);
-    P_marg = P_mat(plot_dims, plot_dims, :);
-
-    for k = 1:K
-        [X1, X2] = meshgrid(linspace(min(Xm_cloud(:,plot_dims(1))), max(Xm_cloud(:,plot_dims(1))), 100), ...
-                    linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
-        X_grid = [X1(:) X2(:)];
-        
-        Z = zeros(size(X1));
-        for i = 1:size(X_grid, 1)
-            Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
-        end
-        Z = reshape(Z, size(X1));
-        Z = Z/(2*pi*sqrt(det(P_marg(:,:,k))));
-        contour_levels = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
-
-        contour(X1, X2, Z, contour_levels, 'LineWidth', 2, 'LineColor', contourCols(k,:));
-        hold on;
-    end 
-    plot(Xprop_truth(5), Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
-    title('Ydot-Zdot');
-    xlabel('Ydot');
-    ylabel('Zdot');
-    legend(legend_string);
-    hold off;
-
-    sgt = sprintf('Timestep: %1.5f Hours (Posterior)', tpr*time2hr);
-    sgtitle(sgt);
-
-    sg = sprintf('./Simulations/Timestep_%i_2A.png', tau);
-    saveas(f, sg, 'png');
-    close(f);
-
-    f = figure('visible','off','Position', get(0,'ScreenSize'));
-    f.WindowState = 'maximized';
-
-    legend_string = {};
-    for k = 1:K
-        % legend_string{k} = sprintf('Contour %i', k);
-        legend_string{k} = sprintf('\\omega = %1.4f', wp(k));
-    end
-    % legend_string{K+1} = "Centroids";
-    legend_string{K+1} = "Truth";
-
-    subplot(2,3,1)
-    for k = 1:K
-        clusterPoints = Xp_cloudp(c_id == k, :);
-        mu_pExp(k,:) = mu_p{k};
-        scatter(clusterPoints(:,1), clusterPoints(:,2), 'filled', 'MarkerFaceColor', colors(k));
-        hold on;
-    end
-
-    % plot(mu_pExp(:,1), mu_pExp(:,2), '+', 'MarkerSize', 10, 'LineWidth', 3);
-    % hold on;
-    plot(Xprop_truth(1), Xprop_truth(2), 'kx','MarkerSize', 20, 'LineWidth', 3)
-    title('X-Y');
-    xlabel('X');
-    ylabel('Y');
-    legend(legend_string);
-    hold off;
-
-    subplot(2,3,2)
-    for k = 1:K
-        clusterPoints = Xp_cloudp(c_id == k, :);
-        scatter(clusterPoints(:,1), clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
-        hold on;
-    end
-    % plot(mu_pExp(:,1), mu_pExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
-    % hold on;
-    plot(Xprop_truth(1), Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
-    title('X-Z');
-    xlabel('X');
-    ylabel('Z');
-    legend(legend_string);
-    hold off;
     
-    subplot(2,3,3)
-    for k = 1:K
-        clusterPoints = Xp_cloudp(c_id == k, :);
-        scatter(clusterPoints(:,2), clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
-        hold on;
-    end
-    % plot(mu_pExp(:,2), mu_pExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
-    % hold on;
-    plot(Xprop_truth(2), Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
-    title('Y-Z');
-    xlabel('Y');
-    ylabel('Z');
-    legend(legend_string);
-    hold off;
+        legend_string = {};
+        parfor k = 1:K
+            legend_string{k} = sprintf('Contour %i', k);
+            % legend_string{K+k} = sprintf('\\omega = %1.4f', wp(k));
+        end
+        % legend_string{K+1} = "Centroids";
+        legend_string{K+1} = "Truth";
     
-    subplot(2,3,4)
-    for k = 1:K
-        clusterPoints = Xp_cloudp(c_id == k, :);
-        scatter(clusterPoints(:,4), clusterPoints(:,5), 'filled', 'MarkerFaceColor', colors(k));
-        hold on;
-    end
-    % plot(mu_pExp(:,4), mu_pExp(:,5), '+', 'MarkerSize', 10, 'LineWidth', 3);
-    % hold on;
-    plot(Xprop_truth(4), Xprop_truth(5), 'kx','MarkerSize', 20, 'LineWidth', 3)
-    title('Xdot-Ydot');
-    xlabel('Xdot');
-    ylabel('Ydot');
-    legend(legend_string);
-    hold off;
+        mu_mat = mu_pExp;
+        P_mat = cat(3, P_p{:});
     
-    subplot(2,3,5)
-    for k = 1:K
-        clusterPoints = Xp_cloudp(c_id == k, :);
-        scatter(clusterPoints(:,4), clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
-        hold on;
-    end
-    % plot(mu_pExp(:,4), mu_pExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
-    % hold on;
-    plot(Xprop_truth(4), Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
-    title('Xdot-Zdot');
-    xlabel('Xdot');
-    ylabel('Zdot');
-    legend(legend_string);
-    hold off;
+        f = figure('visible','off','Position', get(0,'ScreenSize'));
+        f.WindowState = 'maximized';
     
-    subplot(2,3,6)
-    for k = 1:K
-        clusterPoints = Xp_cloudp(c_id == k, :);
-        scatter(clusterPoints(:,5), clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
+        subplot(2,3,1)
+        plot_dims = [1,2];
+        mu_marg = mu_mat(:, plot_dims);
+        P_marg = P_mat(plot_dims, plot_dims, :);
+    
+        [X1, X2] = meshgrid(linspace(min(Xm_cloud(:,plot_dims(1))), max(Xm_cloud(:,plot_dims(1))), 100), ...
+                            linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
+        X_grid = [X1(:) X2(:)];
+    
+        Z_cell = cell(K,1); contours_cell = cell(K,1); 
+        
+        parfor k = 1:K
+            Z = zeros(size(X1));
+            for i = 1:size(X_grid, 1)
+                Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
+            end
+            Z = reshape(Z, size(X1));
+            Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
+            contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+        end 
+        
         hold on;
+        for k = 1:K
+            contour(dist2km*X1, dist2km*X2, dist2km*Z_cell{k}, dist2km*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+        end
+        plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(2), 'kx','MarkerSize', 20, 'LineWidth', 3)
+        title('X-Y');
+        xlabel('X (km.)');
+        ylabel('Y (km.)');
+        legend(legend_string);
+        hold off;
+    
+        subplot(2,3,2)
+        plot_dims = [1,3];
+        mu_marg = mu_mat(:, plot_dims);
+        P_marg = P_mat(plot_dims, plot_dims, :);
+    
+        [X1, X2] = meshgrid(linspace(min(Xm_cloud(:,plot_dims(1))), max(Xm_cloud(:,plot_dims(1))), 100), ...
+                            linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
+        X_grid = [X1(:) X2(:)];
+    
+        Z_cell = cell(K,1); contours_cell = cell(K,1); 
+        
+        parfor k = 1:K
+            Z = zeros(size(X1));
+            for i = 1:size(X_grid, 1)
+                Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
+            end
+            Z = reshape(Z, size(X1));
+            Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
+            contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+        end 
+        
+        hold on;
+        for k = 1:K
+            contour(dist2km*X1, dist2km*X2, dist2km*Z_cell{k}, dist2km*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+        end
+        plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
+        title('X-Z');
+        xlabel('X (km.)');
+        ylabel('Z (km.)');
+        legend(legend_string);
+        hold off;
+    
+        subplot(2,3,3)
+        plot_dims = [2,3];
+        mu_marg = mu_mat(:, plot_dims);
+        P_marg = P_mat(plot_dims, plot_dims, :);
+    
+        [X1, X2] = meshgrid(linspace(min(Xm_cloud(:,plot_dims(1))), max(Xm_cloud(:,plot_dims(1))), 100), ...
+                            linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
+        X_grid = [X1(:) X2(:)];
+    
+        Z_cell = cell(K,1); contours_cell = cell(K,1); 
+        
+        parfor k = 1:K
+            Z = zeros(size(X1));
+            for i = 1:size(X_grid, 1)
+                Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
+            end
+            Z = reshape(Z, size(X1));
+            Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
+            contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+        end 
+        
+        hold on;
+        for k = 1:K
+            contour(dist2km*X1, dist2km*X2, dist2km*Z_cell{k}, dist2km*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+        end
+        plot(dist2km*Xprop_truth(2), dist2km*Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
+        title('Y-Z');
+        xlabel('Y (km.)');
+        ylabel('Z (km.)');
+        legend(legend_string);
+        hold off;
+    
+        subplot(2,3,4)
+        plot_dims = [4,5];
+        mu_marg = mu_mat(:, plot_dims);
+        P_marg = P_mat(plot_dims, plot_dims, :);
+    
+        [X1, X2] = meshgrid(linspace(min(Xm_cloud(:,plot_dims(1))), max(Xm_cloud(:,plot_dims(1))), 100), ...
+                            linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
+        X_grid = [X1(:) X2(:)];
+    
+        Z_cell = cell(K,1); contours_cell = cell(K,1); 
+        
+        parfor k = 1:K
+            Z = zeros(size(X1));
+            for i = 1:size(X_grid, 1)
+                Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
+            end
+            Z = reshape(Z, size(X1));
+            Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
+            contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+        end 
+        
+        hold on;
+        for k = 1:K
+            contour(vel2kms*X1, vel2kms*X2, vel2kms*Z_cell{k}, vel2kms*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+        end 
+        plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(5), 'kx','MarkerSize', 20, 'LineWidth', 3)
+        title('Xdot-Ydot');
+        xlabel('Xdot (km/s)');
+        ylabel('Ydot (km/s)');
+        legend(legend_string);
+        hold off;
+    
+        subplot(2,3,5)
+        plot_dims = [4,6];
+        mu_marg = mu_mat(:, plot_dims);
+        P_marg = P_mat(plot_dims, plot_dims, :);
+    
+        [X1, X2] = meshgrid(linspace(min(Xm_cloud(:,plot_dims(1))), max(Xm_cloud(:,plot_dims(1))), 100), ...
+                            linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
+        X_grid = [X1(:) X2(:)];
+    
+        Z_cell = cell(K,1); contours_cell = cell(K,1); 
+        
+        parfor k = 1:K
+            Z = zeros(size(X1));
+            for i = 1:size(X_grid, 1)
+                Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
+            end
+            Z = reshape(Z, size(X1));
+            Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
+            contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+        end 
+        
+        hold on;
+        for k = 1:K
+            contour(vel2kms*X1, vel2kms*X2, vel2kms*Z_cell{k}, vel2kms*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+        end
+        plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
+        title('Xdot-Zdot');
+        xlabel('Xdot (km/s)');
+        ylabel('Zdot (km/s)');
+        legend(legend_string);
+        hold off;
+    
+        subplot(2,3,6)
+        plot_dims = [5,6];
+        mu_marg = mu_mat(:, plot_dims);
+        P_marg = P_mat(plot_dims, plot_dims, :);
+    
+        [X1, X2] = meshgrid(linspace(min(Xm_cloud(:,plot_dims(1))), max(Xm_cloud(:,plot_dims(1))), 100), ...
+                            linspace(min(Xm_cloud(:,plot_dims(2))), max(Xm_cloud(:,plot_dims(2))), 100));
+        X_grid = [X1(:) X2(:)];
+    
+        Z_cell = cell(K,1); contours_cell = cell(K,1); 
+        
+        parfor k = 1:K
+            Z = zeros(size(X1));
+            for i = 1:size(X_grid, 1)
+                Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
+            end
+            Z = reshape(Z, size(X1));
+            Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
+            contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+        end 
+        
+        hold on;
+        for k = 1:K
+            contour(vel2kms*X1, vel2kms*X2, vel2kms*Z_cell{k}, vel2kms*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+        end 
+        plot(vel2kms*Xprop_truth(5), vel2kms*Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
+        title('Ydot-Zdot');
+        xlabel('Ydot (km/s)');
+        ylabel('Zdot (km/s)');
+        legend(legend_string);
+        hold off;
+    
+        sgt = sprintf('Timestep: %3.4f Hours (Posterior)', tpr*time2hr);
+        sgtitle(sgt);
+    
+        sg = sprintf('./Simulations/Timestep_%i_2A.png', tau);
+        % sg = sprintf('./Simulations/Different Orbit Simulations/Timestep_%i_2A.png', tau);
+        saveas(f, sg, 'png');
+        close(f);
+    
+        f = figure('visible','off','Position', get(0,'ScreenSize'));
+        f.WindowState = 'maximized';
+    
+        %{
+        legend_string = {};
+        parfor k = 1:K
+            % legend_string{k} = sprintf('Contour %i', k);
+            legend_string{k} = sprintf('\\omega = %1.4f', wp(k));
+        end
+        % legend_string{K+1} = "Centroids";
+        legend_string{K+1} = "Truth";
+        %}
+    
+        legend_string = "Truth";
+    
+        subplot(2,3,1)
+        parfor k = 1:K
+            cPoints{k} = Xp_cloudp(c_id == k, :);
+            mu_pExp(k,:) = mu_p{k};
+        end
+        hold on;
+        for k = 1:K
+            scatter(dist2km*cPoints{k}(:,1), dist2km*cPoints{k}(:,2), 'filled', ...
+                'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+        end
+        
+    
+        % plot(mu_pExp(:,1), mu_pExp(:,2), '+', 'MarkerSize', 10, 'LineWidth', 3);
+        % hold on;
+        plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(2), 'kx', ...
+            'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string)
+        title('X-Y');
+        xlabel('X (km.)');
+        ylabel('Y (km.)');
+        legend(legend_string);
+        hold off;
+    
+        subplot(2,3,2)
+        parfor k = 1:K
+            cPoints{k} = Xp_cloudp(c_id == k, :);
+            mu_pExp(k,:) = mu_p{k};
+        end
+        hold on;
+        for k = 1:K
+            scatter(dist2km*cPoints{k}(:,1), dist2km*cPoints{k}(:,3), 'filled', ...
+                'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+        end
+        plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(3), 'kx', ...
+            'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string)
+        title('X-Z');
+        xlabel('X (km.)');
+        ylabel('Z (km.)');
+        legend(legend_string);
+        hold off;
+        
+        subplot(2,3,3)
+        parfor k = 1:K
+            cPoints{k} = Xp_cloudp(c_id == k, :);
+            mu_pExp(k,:) = mu_p{k};
+        end
+        hold on;
+        for k = 1:K
+            scatter(dist2km*cPoints{k}(:,2), dist2km*cPoints{k}(:,3), 'filled', ...
+                'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+        end
+        plot(dist2km*Xprop_truth(2), dist2km*Xprop_truth(3), 'kx', ...
+            'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string)
+        title('Y-Z');
+        xlabel('Y (km.)');
+        ylabel('Z (km.)');
+        legend(legend_string);
+        hold off;
+        
+        subplot(2,3,4)
+        parfor k = 1:K
+            cPoints{k} = Xp_cloudp(c_id == k, :);
+            mu_pExp(k,:) = mu_p{k};
+        end
+        hold on;
+        for k = 1:K
+            scatter(vel2kms*cPoints{k}(:,4), vel2kms*cPoints{k}(:,5), 'filled', ...
+                'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+        end
+        plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(5), 'kx', ...
+            'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string)
+    
+        title('Xdot-Ydot');
+        xlabel('Xdot (km/s)');
+        ylabel('Ydot (km/s)');
+        legend(legend_string);
+        hold off;
+        
+        subplot(2,3,5)
+        parfor k = 1:K
+            cPoints{k} = Xp_cloudp(c_id == k, :);
+            mu_pExp(k,:) = mu_p{k};
+        end
+        hold on;
+        for k = 1:K
+            scatter(vel2kms*cPoints{k}(:,4), vel2kms*cPoints{k}(:,6), 'filled', ...
+                'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+        end
+        plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(6), 'kx', ...
+            'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string)
+        title('Xdot-Zdot');
+        xlabel('Xdot (km/s)');
+        ylabel('Zdot (km/s)');
+        legend(legend_string);
+        hold off;
+        
+        subplot(2,3,6)
+        parfor k = 1:K
+            cPoints{k} = Xp_cloudp(c_id == k, :);
+            mu_pExp(k,:) = mu_p{k};
+        end
+        hold on;
+        for k = 1:K
+            scatter(vel2kms*cPoints{k}(:,5), vel2kms*cPoints{k}(:,6), 'filled', ...
+                'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+        end
+        plot(vel2kms*Xprop_truth(5), vel2kms*Xprop_truth(6), 'kx', ...
+            'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string)
+        title('Ydot-Zdot');
+        xlabel('Ydot (km/s)');
+        ylabel('Zdot (km/s)');
+        legend(legend_string);
+        hold off;
+    
+        sgt = sprintf('Timestep: %3.4f Hours (Posterior)', tpr*time2hr);
+        sgtitle(sgt);
+    
+        sg = sprintf('./Simulations/Timestep_%i_2B.png', tau);
+        % sg = sprintf('./Simulations/Different Orbit Simulations/Timestep_%i_2B.png', tau);
+        saveas(f, sg, 'png');
+        close(f);
     end
-    % plot(mu_pExp(:,5), mu_pExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
-    % hold on;
-    plot(Xprop_truth(5), Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
-    title('Ydot-Zdot');
-    xlabel('Ydot');
-    ylabel('Zdot');
-    legend(legend_string);
-    hold off;
-
-    sgt = sprintf('Timestep: %1.5f Hours (Posterior)', tpr*time2hr);
-    sgtitle(sgt);
-
-    sg = sprintf('./Simulations/Timestep_%i_2B.png', tau);
-    saveas(f, sg, 'png');
-    close(f);
 
     if (abs(tpr-hdR(end,1)) < 1e-10)
         Xp_cloudp = zeros(L, length(Xprop_truth));
