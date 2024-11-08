@@ -11,6 +11,11 @@ x0 = [0.5-mu, 0.0455, 0, -0.5, 0.5, 0.0]'; % Sample Starting Point
 
 % x0 = [0.836915 0 0 -0.02 0.02 0]'; 
 
+% Coordinate system conversions
+dist2km = 384400; % Kilometers per non-dimensionalized distance
+time2hr = 4.342*24; % Hours per non-dimensionalized time
+vel2kms = dist2km/(time2hr*60*60); % Kms per non-dimensionalized velocity
+
 % Define time span
 tstamp = 0; % For long term trajectories 
 % tstamp = 0.3570;
@@ -20,7 +25,16 @@ tspan = 0:6.25e-3:end_t; % For our modified trajectory
 % Call ode45()
 
 opts = odeset('Events', @termSat);
-[t,dx_dt] = ode45(@cr3bp_dyn, tspan, x0, opts); % Assumes termination event (i.e. target enters LEO)
+% [t,dx_dt] = ode45(@cr3bp_dyn, tspan, x0, opts); % Assumes termination event (i.e. target enters LEO)
+
+dx_dt = zeros(length(tspan), length(x0)); dx_dt(1,:) = x0;
+t = zeros(length(tspan),1);
+
+for i = 1:(length(tspan)-1)
+   % [t_tmp,dx_dt_tmp] = ode45(@cr3bp_dyn, [tspan(i) tspan(i+1)], x0, opts); % Assumes termination event (i.e. target enters LEO)
+   [t_tmp,dx_dt_tmp] = ode45(@cr3bp_dyn, [0, tspan(i+1) - tspan(i)], x0, opts); 
+   x0 = dx_dt_tmp(end,:); dx_dt(i+1,:) = x0; t(i+1) = tspan(i+1);
+end
 
 % [t,dx_dt] = ode45(@cr3bp_dyn, tspan, x0); % Assumes no termination event
 

@@ -343,7 +343,7 @@ mu_p = mu_c;
 P_p = P_c;
 
 % Comment this out if you wish to use noise.
-noised_obs = partial_ts;
+% noised_obs = partial_ts;
 
 tpr = t_int + interval; % Time stamp of the prior means, weights, and covariances
 [idx_meas, ~] = find(abs(noised_obs(:,1) - tpr) < 1e-10); % Find row with time
@@ -510,8 +510,8 @@ interval = hdR(idx_meas,c_meas) - hdR(idx_meas-1,c_meas);
 % t_end = tpr + l_filt*interval;
 % t_end = hdR(idx_meas + (l_filt - 1), c_meas); % Add small epsilon to avoid roundoff
 
-[idx_crit, ~] = find(abs(noised_obs(:,1) - cTimes(2)) < 1e-10); % Find the index of the last observation before the half-day gap
-t_end = noised_obs(idx_crit+5,1); % First observation of new pass + one more time step
+[idx_crit, ~] = find(abs(noised_obs(:,1) - cTimes(3)) < 1e-10); % Find the index of the last observation before the half-day gap
+t_end = noised_obs(idx_crit,1); % First observation of new pass + one more time step
 % t_end = cTimes(2);
 % l_filt = int32((t_end - tpr)/interval + 1); % Filter time length
 
