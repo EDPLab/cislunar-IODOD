@@ -534,16 +534,16 @@ hold on;
 for k = 1:K
     clusterPoints = Xp_cloud(c_id == k, :);
     mu_pExp(k,:) = mu_p{k};
-    scatter3(clusterPoints(:,1), clusterPoints(:,2), clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
+    scatter3(dist2km*clusterPoints(:,1), dist2km*clusterPoints(:,2), dist2km*clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
     hold on;
 end
-plot3(mu_pExp(:,1), mu_pExp(:,2), mu_pExp(:,3), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
+plot3(dist2km*mu_pExp(:,1), dist2km*mu_pExp(:,2), dist2km*mu_pExp(:,3), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
 hold on;
-plot3(Xprop_truth(1), Xprop_truth(2), Xprop_truth(3), 'x','MarkerSize', 20, 'LineWidth', 3)
+plot3(dist2km*Xprop_truth(1), dist2km*Xprop_truth(2), dist2km*Xprop_truth(3), 'x','MarkerSize', 20, 'LineWidth', 3)
 title('Posterior Distribution (Position)');
-xlabel('X');
-ylabel('Y');
-zlabel('Z');
+xlabel('X (km.)');
+ylabel('Y (km.)');
+zlabel('Z (km.)');
 legend(legend_string);
 grid on;
 view(3);
@@ -553,94 +553,132 @@ subplot(2,1,2)
 hold on;
 for k = 1:K
     clusterPoints = Xp_cloud(c_id == k, :);
-    scatter3(clusterPoints(:,4), clusterPoints(:,5), clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
+    scatter3(vel2kms*clusterPoints(:,4), vel2kms*clusterPoints(:,5), vel2kms*clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
     hold on;
 end
-plot3(mu_pExp(:,4), mu_pExp(:,5), mu_pExp(:,6), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
+plot3(vel2kms*mu_pExp(:,4), vel2kms*mu_pExp(:,5), vel2kms*mu_pExp(:,6), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
 hold on;
-plot3(Xprop_truth(4), Xprop_truth(5), Xprop_truth(6), 'x','MarkerSize', 20, 'LineWidth', 3)
+plot3(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(5), vel2kms*Xprop_truth(6), 'x','MarkerSize', 20, 'LineWidth', 3)
 title('Posterior Distribution (Velocity)');
-xlabel('Vx');
-ylabel('Vy');
-zlabel('Vz');
+xlabel('Vx (km/s)');
+ylabel('Vy (km/s)');
+zlabel('Vz (km/s)');
 legend(legend_string);
 grid on;
 view(3);
 hold off;
 
+legend_string = "Truth";
+
 % Plot planar projections
 figure(4)
+set(gcf, 'units','normalized','outerposition',[0 0 1 1])
 subplot(2,3,1)
-gscatter(Xp_cloud(:,1), Xp_cloud(:,2), c_id);
-hold on;
-plot(mu_pExp(:,1), mu_pExp(:,2), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
-hold on;
-plot(Xprop_truth(1), Xprop_truth(2), 'x','MarkerSize', 20, 'LineWidth', 3)
+for k = 1:K
+    clusterPoints = Xp_cloud(c_id == k, :);
+    mu_pExp(k,:) = mu_p{k};
+    scatter(dist2km*clusterPoints(:,1), dist2km*clusterPoints(:,2), 'filled', ...
+        'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
+    hold on;
+end
+% plot(dist2km*mu_pExp(:,1), dist2km*mu_pExp(:,2), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
+% hold on;
+plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(2), 'kx','MarkerSize', 20, 'LineWidth', 3)
 title('X-Y');
-xlabel('X');
-ylabel('Y');
+xlabel('X (km.)');
+ylabel('Y (km.)');
 legend(legend_string);
 hold off;
 
 subplot(2,3,2)
-gscatter(Xp_cloud(:,1), Xp_cloud(:,3), c_id);
-hold on;
-plot(mu_pExp(:,1), mu_pExp(:,3), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
-hold on;
-plot(Xprop_truth(1), Xprop_truth(3), 'x','MarkerSize', 20, 'LineWidth', 3)
+for k = 1:K
+    clusterPoints = Xp_cloud(c_id == k, :);
+    mu_pExp(k,:) = mu_p{k};
+    scatter(dist2km*clusterPoints(:,1), dist2km*clusterPoints(:,3), 'filled', ...
+        'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
+    hold on;
+end
+% plot(dist2km*mu_pExp(:,1), dist2km*mu_pExp(:,3), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
+% hold on;
+plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
 title('X-Z');
-xlabel('X');
-ylabel('Z');
+xlabel('X (km.)');
+ylabel('Z (km.)');
 legend(legend_string);
 hold off;
 
 subplot(2,3,3)
-gscatter(Xp_cloud(:,2), Xp_cloud(:,3), c_id);
-hold on;
-plot(mu_pExp(:,2), mu_pExp(:,3), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
-hold on;
-plot(Xprop_truth(2), Xprop_truth(3), 'x','MarkerSize', 20, 'LineWidth', 3)
+for k = 1:K
+    clusterPoints = Xp_cloud(c_id == k, :);
+    mu_pExp(k,:) = mu_p{k};
+    scatter(dist2km*clusterPoints(:,2), dist2km*clusterPoints(:,3), 'filled', ...
+        'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
+    hold on;
+end
+% plot(dist2km*mu_pExp(:,2), dist2km*mu_pExp(:,3), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
+% hold on;
+plot(dist2km*Xprop_truth(2), dist2km*Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
 title('Y-Z');
-xlabel('Y');
-ylabel('Z');
+xlabel('Y (km.)');
+ylabel('Z (km.)');
 legend(legend_string);
 hold off;
 
 subplot(2,3,4)
-gscatter(Xp_cloud(:,4), Xp_cloud(:,5), c_id);
-hold on;
-plot(mu_pExp(:,4), mu_pExp(:,5), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
-hold on;
-plot(Xprop_truth(4), Xprop_truth(5), 'x','MarkerSize', 20, 'LineWidth', 3)
+for k = 1:K
+    clusterPoints = Xp_cloud(c_id == k, :);
+    mu_pExp(k,:) = mu_p{k};
+    scatter(vel2kms*clusterPoints(:,4), vel2kms*clusterPoints(:,5), 'filled', ... 
+        'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
+    hold on;
+end
+% plot(vel2kms*mu_pExp(:,4), vel2kms*mu_pExp(:,5), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
+% hold on;
+plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(5), 'kx','MarkerSize', 20, 'LineWidth', 3)
 title('Xdot-Ydot');
-xlabel('Xdot');
-ylabel('Ydot');
+xlabel('Xdot (km/s)');
+ylabel('Ydot (km/s)');
 legend(legend_string);
 hold off;
 
 subplot(2,3,5)
-gscatter(Xp_cloud(:,4), Xp_cloud(:,6), c_id);
-hold on;
-plot(mu_pExp(:,4), mu_pExp(:,6), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
-hold on;
-plot(Xprop_truth(4), Xprop_truth(6), 'x','MarkerSize', 20, 'LineWidth', 3)
+for k = 1:K
+    clusterPoints = Xp_cloud(c_id == k, :);
+    mu_pExp(k,:) = mu_p{k};
+    scatter(vel2kms*clusterPoints(:,4), vel2kms*clusterPoints(:,6), 'filled', ...
+        'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
+    hold on;
+end
+% plot(vel2kms*mu_pExp(:,4), vel2kms*mu_pExp(:,6), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
+% hold on;
+plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
 title('Xdot-Zdot');
-xlabel('Xdot');
-ylabel('Zdot');
+xlabel('Xdot (km/s)');
+ylabel('Zdot (km/s)');
 legend(legend_string);
 hold off;
 
 subplot(2,3,6)
-gscatter(Xp_cloud(:,5), Xp_cloud(:,6), c_id);
-hold on;
-plot(mu_pExp(:,5), mu_pExp(:,6), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
-hold on;
-plot(Xprop_truth(5), Xprop_truth(6), 'x','MarkerSize', 20, 'LineWidth', 3)
+for k = 1:K
+    clusterPoints = Xp_cloud(c_id == k, :);
+    mu_pExp(k,:) = mu_p{k};
+    scatter(vel2kms*clusterPoints(:,5), vel2kms*clusterPoints(:,6), 'filled', ...
+        'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
+    hold on;
+end
+% plot(vel2kms*mu_pExp(:,5), vel2kms*mu_pExp(:,6), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
+% hold on;
+plot(vel2kms*Xprop_truth(5), vel2kms*Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
 title('Ydot-Zdot');
-xlabel('Ydot');
-ylabel('Zdot');
+xlabel('Ydot (km/s)');
+ylabel('Zdot (km/s)');
 legend(legend_string);
 hold off;
+
+sg = sprintf('Timestep: %3.4f Hours (Posterior)', time2hr*noised_obs(idx_meas,1));
+sgtitle(sg);
+saveas(gcf,'./Simulations/Timestep_0_2B.png', 'png')
+% saveas(gcf,'./Simulations/Different Orbit Simulations/Timestep_0_2B.png', 'png')
 
 % At this point, we have shown a PGM-I propagation and update step. The
 % next step is to utilize this PGM-I update across all time steps during
@@ -704,7 +742,7 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
         % Verification Step
         [idx_meas, ~] = find(abs(noised_obs(:,1) - tpr) < 1e-10); % Find row with time
 
-        fprintf("Timestamp: %1.5f\n", tpr);
+        fprintf("Timestamp: %1.5f\n", tpr*time2hr);
         
         % Cluster using K-means clustering algorithm
         [idx, ~] = kmeans(Xm_norm, K);
@@ -935,7 +973,7 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
         legend(legend_string);
         hold off;
 
-        sgt = sprintf('Timestep: %1.5f (Prior)', tpr);
+        sgt = sprintf('Timestep: %1.5f Hours (Prior)', tpr*time2hr);
         sgtitle(sgt);
 
         sg = sprintf('./Simulations/Timestep_%i_1A.png', tau);
@@ -1073,7 +1111,7 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
         legend(legend_string);
         hold off;
 
-        sgt = sprintf('Timestep: %1.5f (Prior)', tpr);
+        sgt = sprintf('Timestep: %1.5f (Prior) Hours', tpr*time2hr);
         sgtitle(sgt);
 
         sg = sprintf('./Simulations/Timestep_%i_1B.png', tau);
@@ -1201,7 +1239,7 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
         end
 
     else
-        fprintf("Timestamp: %1.5f\n", tpr);
+        fprintf("Timestamp: %1.5f\n", tpr*time2hr);
 
         mu_p = cell(1, 1); 
         P_p = cell(1, 1); 
@@ -1416,7 +1454,7 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
     legend(legend_string);
     hold off;
 
-    sgt = sprintf('Timestep: %1.5f (Posterior)', tpr);
+    sgt = sprintf('Timestep: %1.5f Hours (Posterior)', tpr*time2hr);
     sgtitle(sgt);
 
     sg = sprintf('./Simulations/Timestep_%i_2A.png', tau);
@@ -1526,7 +1564,7 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
     legend(legend_string);
     hold off;
 
-    sgt = sprintf('Timestep: %1.5f (Posterior)', tpr);
+    sgt = sprintf('Timestep: %1.5f Hours (Posterior)', tpr*time2hr);
     sgtitle(sgt);
 
     sg = sprintf('./Simulations/Timestep_%i_2B.png', tau);
