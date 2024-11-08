@@ -697,7 +697,7 @@ interval = hdR(idx_meas,c_meas) - hdR(idx_meas-1,c_meas);
 [idx_crit, ~] = find(abs(noised_obs(:,1) - cTimes(2)) < 1e-10); % Find the index of the last observation before the half-day gap
 t_end = noised_obs(idx_crit+5,1); % First observation of new pass + one more time step
 % t_end = cTimes(2);
-% l_filt = int32((t_end - tpr)/interval + 1); % Filter time length
+l_filt = int32((t_end - tpr)/interval + 1); % Filter time length
 
 % Find time step at which we can observe the target again
 % [idx_lastObs, ~] = find(abs(noised_obs(:,1) - hdR(end,1)) < 1e-10); % Find the index of the last observation before the half-day gap
@@ -705,6 +705,14 @@ t_end = noised_obs(idx_crit+5,1); % First observation of new pass + one more tim
 % l_filt = int32((noised_obs(idx_lastObs+1,1) - 1*interval - tpr)/interval + 1); % Filter time length
 
 tau = 0;
+
+ent2 = zeros(l_filt+1,1);
+ent1 = zeros(l_filt+1,length(mu_c{1})); 
+
+ent2(1) = log(det(cov(X0cloud)));
+ent2(2) = log(det(cov(Xp_cloud)));
+ent1(1,:) = getDiagCov(X0cloud);
+
 for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for easier propagation
 
     % Resampling Step
@@ -714,6 +722,8 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
             [Xp_cloud(i,:), ~] = drawFrom2(wp, mu_p, P_p); 
         end 
     end
+
+    ent1(tau+2,:) = getDiagCov(Xp_cloud);
 
     % Propagation Step
     Xm_cloud = propagate(Xp_cloud, to, interval);
@@ -1170,7 +1180,7 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
             save('aPriori.mat', 'Xm_cloud');
 
             % Extract means
-            for k = 1:K
+            parfor k = 1:K
                 mu_mExp(k,:) = mu_c{k};
             end
     
@@ -1675,10 +1685,21 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
         close(f);
     end
 
+    % if(1)
+    if (idx_meas ~= 0)
+        wsum = 0;
+        for k = 1:K
+            wsum = wsum + wp(k)*det(P_p{k});
+        end
+        ent2(tau+2) = log(wsum);
+    else
+        ent2(tau+2) = getKnEntropy(Kn, Xp_cloudp); % Get entropy as if you still are using six clusters
+    end
+
     if (abs(tpr-hdR(end,1)) < 1e-10)
         Xp_cloudp = zeros(L, length(Xprop_truth));
         c_id = zeros(length(Xp_cloudp(:,1)),1);
-        for i = 1:L
+        parfor i = 1:L
             [Xp_cloudp(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
         end
 
@@ -1687,7 +1708,7 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
         mu_pExp = zeros(K, length(mu_p{1}));
 
         % Extract means
-        for k = 1:K
+        parfor k = 1:K
             mu_pExp(k,:) = mu_p{k};
         end
 
@@ -1775,7 +1796,7 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
     elseif(abs(tpr - (t_end-interval)) < 1e-10) % Second to last possible time step
         Xp_cloudp = zeros(L, length(Xprop_truth));
         c_id = zeros(L,1);
-        for i = 1:L
+        parfor i = 1:L
             [Xp_cloudp(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
         end
 
@@ -1898,11 +1919,52 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
 
 end
 
-Xp_cloudp = zeros(L, length(Xprop_truth));
-c_id = zeros(L,1);
-for i = 1:L
+Xp_cloudp = zeros(Lp, length(Xprop_truth));
+c_id = zeros(Lp,1);
+parfor i = 1:Lp
     [Xp_cloudp(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
 end
+ent1(end,:) = getDiagCov(Xp_cloudp);
+
+figure(7)
+
+subplot(2,3,1)
+plot(0:l_filt, dist2km*sqrt(ent1(:,1)))
+xlabel('Filter Step #')
+ylabel('Log \\sigma_X (km.)')
+title('X Standard Deviation')
+
+subplot(2,3,2)
+plot(0:l_filt, dist2km*sqrt(ent1(:,2)))
+xlabel('Filter Step #')
+ylabel('Log \\sigma_Y (km.)')
+title('Y Standard Deviation')
+
+subplot(2,3,3)
+plot(0:l_filt, dist2km*sqrt(ent1(:,3)))
+xlabel('Filter Step #')
+ylabel('Log \\sigma_Z (km.)')
+title('Z Standard Deviation')
+
+subplot(2,3,4)
+plot(0:l_filt, vel2kms*sqrt(ent1(:,4)))
+xlabel('Filter Step #')
+ylabel('Log \\sigma_Xdot (km/s)')
+title('Xdot Standard Deviation')
+
+subplot(2,3,5)
+plot(0:l_filt, vel2kms*sqrt(ent1(:,5)))
+xlabel('Filter Step #')
+ylabel('\\sigma_Ydot (km/s)')
+title('Ydot Standard Deviation')
+
+subplot(2,3,6)
+plot(0:l_filt, vel2kms*sqrt(ent1(:,6)))
+xlabel('Filter Step #')
+ylabel('\\sigma_Zdot (km/s)')
+title('Zdot Standard Deviation')
+
+savefig(gcf, './Simulations/StDevEvols.fig');
 
 [idx_end, ~] = find(abs(full_ts(:,1) - t_end) < 1e-10);
 Xprop_truth = [full_ts(idx_end,2:4), full_vts(idx_end,2:4)];
@@ -1910,6 +1972,14 @@ mu_pExp = zeros(K, length(mu_p{1}));
 
 fprintf('Final State Truth:\n')
 disp(Xprop_truth);
+
+% Plot the results
+figure(6)
+plot(0:l_filt, ent2)
+xlabel('Filter Step #')
+ylabel('Entropy Metric')
+title('Entropy')
+savefig(gcf,'./Simulations/Entropy.fig');
 
 % Plot the results
 figure(9)
@@ -2050,6 +2120,8 @@ sgtitle(sg)
 % savefig(gcf, 'nextObservedTracklet_normK.fig');
 savefig(gcf, 'finalDistribution_normK.fig');
 %}
+
+save("stdevs.mat", "ent1");
 
 % Finish timer
 toc
@@ -2300,41 +2372,6 @@ function [x_p, pos] = drawFrom2(w, mu, P)
     x_p = mvnrnd(mu{pos}, P{pos});
 end
 
-function [x_p, pos] = drawFrom(w, mu, P)
-    cmf_w = zeros(length(w),1); % Cumulative mass function of the weights
-    cmf_w(1,1) = w(1);
-    for j = 2:length(w)
-        cmf_w(j,1) = cmf_w(j-1,1) + w(j);
-    end
-
-    wtoken = rand;
-    
-    % Use binary search
-    left = 1;
-    right = length(cmf_w(:,1));
-
-    while (left <= right)
-        mid = floor((left + right) / 2);
-        if (cmf_w(mid) == wtoken)
-            pos = mid;
-            return
-        elseif (cmf_w(mid) < wtoken)
-            left = mid + 1;
-        else
-            right = mid - 1;
-        end
-    end
-    pos = left;
-
-    if(pos > length(mu))
-        pos = length(mu); % Correction for rounding error
-    end
-
-    mu_t = mu{pos};
-    R_t = (P{pos} + P{pos}')/2;
-    x_p = mvnrnd(mu_t, R_t)';
-end
-
 function Xm_cloud = propagate(Xcloud, t_int, interval)
     % Xcloud = zeros(L,length(mu{1}));
     % for i = 1:L
@@ -2490,4 +2527,49 @@ function [mu_p, P_p] = ukfUpdate(zk, R, mu_m, P_m, h)
     [V, D] = eig(P_p);
     D = max(D,0);
     P_p = V*D*V';
+end
+
+function ent = getKnEntropy(Kp, Xcloud)
+    rc = Xcloud(:,1:3);
+    vc = Xcloud(:,4:6);
+    
+    mean_rc = mean(rc, 1);
+    mean_vc = mean(vc, 1);
+    
+    std_rc = std(rc,0,1);
+    std_vc = std(vc,0,1);
+    
+    norm_rc = (rc - mean_rc)./norm(std_rc); % Normalizing the position 
+    norm_vc = (vc - mean_vc)./norm(std_vc); % Normalizing the velocity
+    
+    Xm_norm = [norm_rc, norm_vc];
+
+    [idx, ~] = kmeans(Xm_norm, Kp); % Cluster just on position and velocity; Normalize the whole thing
+    cPoints = cell(Kp,1); P = cell(Kp,1);
+    w = zeros(Kp,1);
+    
+    % Calculate covariances and weights for each cluster
+    for k = 1:Kp
+        cluster_points = Xcloud(idx == k, :); % Keep clustering very separate from mean, covariance, weight calculations
+        cPoints{k} = cluster_points; cSize = size(cPoints{k});
+    
+        if(cSize(1) == 1)
+            P{k} = zeros(length(w));
+        else
+            P{k} = cov(cluster_points); % Cell of GMM covariances 
+        end
+        
+        w(k) = size(cluster_points, 1) / size(Xm_norm, 1); % Vector of weights
+    end
+
+    wsum = 0;
+    for k = 1:Kp
+        wsum = wsum + w(k)*det(P{k});
+    end
+    ent = log(wsum);
+end
+
+function ent = getDiagCov(Xcloud)
+    P = cov(Xcloud);
+    ent = diag(P);
 end
