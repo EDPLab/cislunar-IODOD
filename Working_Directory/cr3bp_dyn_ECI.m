@@ -1,6 +1,6 @@
-% Define initial conditions
+    % Define initial conditions
 mu = 1.2150582e-2;
-x0 = [0.5-mu, 0.0455, 0, -0.5, 0.5, 0.0]'; % Sample Starting Point
+% x0 = [0.5-mu, 0.0455, 0, -0.5, 0.5, 0.0]'; % Sample Starting Point
 % x0 = [-1.00506 0 0 -0.5 0.5 0.0]'; % L3 Lagrange Point
 % x0 = [0.5-mu, sqrt(3/4), 0, 0, 0, 0]'; % L4 Lagrange Point
 
@@ -9,7 +9,7 @@ x0 = [0.5-mu, 0.0455, 0, -0.5, 0.5, 0.0]'; % Sample Starting Point
 % x0 = [1.15568 0 0 0 0 0]'; % L2 Lagrange Point
 % x0 = [0.5-mu, -sqrt(3/4), 0, 0, 0, 0]'; % L5 Lagrange Point
 
-% x0 = [0.836915 0 0 -0.02 0.02 0]'; 
+x0 = [-0.144158380406153	-0.000697738382717277	0	0.0100115754530300	-3.45931892135987	0]; % Planar Mirror Orbit "Loop-Dee-Loop" Sub-Trajectory
 
 % Coordinate system conversions
 dist2km = 384400; % Kilometers per non-dimensionalized distance

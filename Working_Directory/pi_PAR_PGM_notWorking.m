@@ -16,16 +16,17 @@ noised_obs = partial_ts;
 R_t = zeros(3*length(noised_obs(:,1)),1); % We shall diagonalize this later
 mu_t = zeros(3*length(noised_obs(:,1)),1);
 
-theta_f = 1.5; % Arc-seconds of error covariance
+theta_f = 1; % 1.5 Arc-seconds of error covariance
 R_f = 0.05; % Range percentage error covariance
-
 dist2km = 384400; % Kilometers per non-dimensionalized distance
 time2hr = 4.342*24; % Hours per non-dimensionalized time
 vel2kms = dist2km/(time2hr*60*60); % Kms per non-dimensionalized velocity
 
 for i = 1:length(partial_ts(:,1))
     mu_t(3*(i-1)+1:3*(i-1)+3, 1) = [partial_ts(i,2); partial_ts(i,3); partial_ts(i,4)];
-    R_t(3*(i-1)+1:3*(i-1)+3, 1) = [(0.05*partial_ts(i,2))^2; (theta_f*4.84814e-6)^2; (theta_f*4.84814e-6)^2];
+    R_t(3*(i-1)+1:3*(i-1)+3, 1) = [(R_f*partial_ts(i,2))^2; theta_f*(7.2722e-6)^2; theta_f*(7.2722e-6)^2];
+    % rng('default')
+    % noised_obs(i,2:4) = mvnrnd(mu_t, Sigma_t);
 end
 
 R_t = diag(R_t);
@@ -37,7 +38,8 @@ end
 
 % Extract important time points from the noised_obs variable
 i = 2;
-interval = noised_obs(2,1) - partial_ts(1,1);
+interval = noised_obs(2,1) - noised_obs(1,1);
+long_interval = noised_obs(end,1) - noised_obs(end-1,1);
 cTimes = []; % Array of important time points
 
 while (i <= length(noised_obs(:,1)))
@@ -52,7 +54,7 @@ end
 hdo = []; % Matrix for a half day observation
 hdo(1,:) = noised_obs(1,:);
 i = 1;
-while(noised_obs(i+1,1) - noised_obs(i,1) < full_ts(2,1) + 1e-15) % Add small epsilon due to roundoff error
+while((noised_obs(i+1,1) - noised_obs(i,1) < (noised_obs(2,1) - noised_obs(1,1) + 1e-15))) % Add small epsilon due to roundoff error
     hdo(i,:) = noised_obs(i+1,:);
     i = i + 1;
 end
@@ -61,15 +63,15 @@ end
 
 hdR = zeros(length(hdo(:,1)),4); % Convert quantities of hdo to [X, Y, Z]
 hdR(:,1) = hdo(:,1); % Timestamp stays the same
-hdR(:,2) = hdo(:,2) .* cos(hdo(:,4)) .* cos(hdo(:,3)); % Conversion to X
-hdR(:,3) = hdo(:,2) .* cos(hdo(:,4)) .* sin(hdo(:,3)); % Conversion to Y
-hdR(:,4) = hdo(:,2) .* sin(hdo(:,4)); % Conversion to Z
+hdR(:,2) = hdo(:,2) .* cos(hdo(:,2)) .* cos(hdo(:,3)); % Conversion to X
+hdR(:,3) = hdo(:,2) .* cos(hdo(:,2)) .* sin(hdo(:,3)); % Conversion to Y
+hdR(:,4) = hdo(:,2) .* sin(hdo(:,2)); % Conversion to Z
 
 pf = 0.50; % A factor between 0 to 1 describing the length of the day to interpolate [x, y]
 in_len = round(pf * length(hdR(:,1))); % Length of interpolation interval
 hdR_p = hdR(1:in_len,:); % Matrix for a partial half-day observation
 
-% Fit polynomials for X, Y, and Z (Cubic for X, Quadratic for X and Y)
+% Fit polynomials for X, Y, and Z (May be quadratic, cubic, or quartic for X, Y, and Z)
 coeffs_X = polyfit(hdR_p(:,1), hdR_p(:,2), 4);
 coeffs_Y = polyfit(hdR_p(:,1), hdR_p(:,3), 4);
 coeffs_Z = polyfit(hdR_p(:,1), hdR_p(:,4), 4);
@@ -113,18 +115,23 @@ Xot_truth = [partial_rts(end,2:4), partial_vts(end,2:4)]';
 
 t_truth = partial_rts(end,1);
 [idx_prop, c_prop] = find(full_ts == t_truth);
-Xprop_truth = [full_ts(idx_prop+1,2:4), full_vts(idx_prop+1,2:4)]';
+Xprop_truth = [full_ts(idx_prop+1,2:4), full_vts(idx_prop+1,2:4)];
 
 L = 500;
-Lp = L;
+Lp = 1.0*L;
 X0cloud = zeros(L,6);
+% pf = 0.5;
+cloudNoise = diag(0.01*abs(Xot_truth));
 
 delete(gcp('nocreate'))
 parpool(4, 'IdleTimeout', Inf);
-
 parfor i = 1:length(X0cloud(:,1))
-    X0cloud(i,:) = stateEstCloud(pf, partial_ts, (partial_ts(2,1) - partial_ts(1,1)) + 1e-15);
+    X0cloud(i,:) = stateEstCloud(pf, theta_f, R_f, partial_ts, (partial_ts(2,1) - partial_ts(1,1)) + 1e-15);
+    % X0cloud(i,:) = mvnrnd(Xot_truth, cloudNoise);
 end
+
+% Xcloud = X0cloud; save('iodCloud_highTol.mat', 'Xcloud');
+% X0cloud = Xcloud;
 
 figure(1)
 set(gcf, 'units','normalized','outerposition',[0 0 1 1])
@@ -191,15 +198,14 @@ hold off;
 sg = sprintf('Timestep: %3.4f Hours', t_truth*time2hr);
 sgtitle(sg);
 savefig(gcf, 'iodCloud.fig');
-saveas(gcf, './Simulations/iodCloud.png', 'png');
-% saveas(gcf, './Simulations/Different Orbit Simulations/iodCloud.png', 'png');
-
+% saveas(gcf, './Simulations/iodCloud.png', 'png');
+saveas(gcf, './Simulations/Different Orbit Simulations/iodCloud.png', 'png');
 
 t_int = hdR_p(end,1); % Time at which we are obtaining a state cloud
 tspan = 0:interval:interval; % Integrate over just a single time step
 Xm_cloud = X0cloud;
 
-parfor i = 1:length(X0cloud(:,1))
+parfor i = 1:length(Xm_cloud(:,1))
     % First, convert from X_{ot} in the topocentric frame to X_{bt} in the
     % synodic frame.
     Xbt = backConvertSynodic(X0cloud(i,:)', t_int);
@@ -208,11 +214,22 @@ parfor i = 1:length(X0cloud(:,1))
     % step and convert back to the topographic frame.
      % Call ode45()
     opts = odeset('Events', @termSat);
-    [t,X] = ode45(@cr3bp_dyn, [0 interval], Xbt, opts); % Assumes termination event (i.e. target enters LEO)
+    % opts = odeset('AbsTol',1e-6,'RelTol',1e-6,'Events', @termSat);
+    [~,X] = ode45(@cr3bp_dyn, [0 interval], Xbt, opts); % Assumes termination event (i.e. target enters LEO)
     Xm_bt = X(end,:)';
     Xm_cloud(i,:) = convertToTopo(Xm_bt, t_int + interval);
     % Xm_cloud(i,:) = procNoise(Xm_cloud(i,:)); % Adds process noise
 end
+
+%{
+mu_c = mean(Xm_cloud);
+P_c = (Xm_cloud - mu_c)' * (Xm_cloud - mu_c) / (L - 1);
+
+fprintf('Mean (Prior Estimate): \n');
+disp(mu_c);
+fprintf('Covariance (Prior Estimate):\n');
+disp(P_c);
+%}
 
 % Initialize variables
 Kn = 6; % Number of clusters (original)
@@ -275,56 +292,6 @@ end
 % Plot the results
 warning('off', 'MATLAB:legend:IgnoringExtraEntries');
 
-%{
-figure(1)
-subplot(2,1,1)
-hold on;
-for k = 1:K
-    clusterPoints = Xm_cloud(idx == k, :);
-    scatter3(clusterPoints(:,1), clusterPoints(:,2), clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
-    hold on;
-end
-plot3(C_unorm(:,1), C_unorm(:,2), C_unorm(:,3), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
-hold on;
-plot3(Xprop_truth(1), Xprop_truth(2), Xprop_truth(3), 'x','MarkerSize', 15, 'LineWidth', 3)
-title('k-Means Clustered Distribution (Position)');
-xlabel('X');
-ylabel('Y');
-zlabel('Z');
-
-legend_string = {};
-for k = 1:K
-    legend_string{k} = sprintf('\\omega = %1.4f', wm(k));
-end
-% legend_string{K+1} = "Centroids";
-legend_string{K+1} = "Truth";
-
-legend(legend_string);
-grid on;
-view(3);
-hold off;
-
-subplot(2,1,2)
-hold on;
-for k = 1:K
-    clusterPoints = Xm_cloud(idx == k, :);
-    scatter3(clusterPoints(:,4), clusterPoints(:,5), clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
-    hold on;
-end
-plot3(C_unorm(:,4), C_unorm(:,5), C_unorm(:,6), 'k+', 'MarkerSize', 15, 'LineWidth', 3);
-hold on;
-plot3(Xprop_truth(4), Xprop_truth(5), Xprop_truth(6), 'x','MarkerSize', 15, 'LineWidth', 3)
-title('k-Means Clustered Distribution (Velocity)');
-xlabel('Vx');
-ylabel('Vy');
-zlabel('Vz');
-legend(legend_string);
-grid on;
-view(3);
-hold off;
-%}
-
-% Plot planar projections
 figure(2)
 subplot(2,1,1)
 hold on;
@@ -473,10 +440,11 @@ hold off;
 
 sg = sprintf('Timestep: %3.4f Hours (Prior)', time2hr*full_ts(idx_prop+1,1));
 sgtitle(sg);
-saveas(gcf, './Simulations/Timestep_0_1B', 'png');
-% saveas(gcf, './Simulations/Different Orbit Simulations/Timestep_0_1B', 'png');
+% saveas(gcf, './Simulations/Timestep_0_1B', 'png');
+saveas(gcf, './Simulations/Different Orbit Simulations/Timestep_0_1B', 'png');
 
-Xprop_truth = [full_ts(idx_prop+1,2:4), full_vts(idx_prop+1,2:4)];
+% Xprop_truth = [full_ts(idx_prop+1,2:4), full_vts(idx_prop+1,2:4)];
+% Xprop_truth = propagate(Xot_truth', full_ts(idx_prop,1), full_ts(idx_prop,1) - full_ts(idx_prop-1,1));
 fprintf('Truth State: \n');
 disp(Xprop_truth);
 
@@ -487,8 +455,10 @@ disp(Xprop_truth);
 wp = wm;
 mu_p = mu_c;
 P_p = P_c;
+resid1 = zeros(length(noised_obs(1,:))-1, K);
+z_corr1 = zeros(length(noised_obs(1,2:4)), K);
 
-% Comment this out if you wish to use noise.
+% Comment this out if you wish to use imperfect measurements.
 % noised_obs = partial_ts;
 
 tpr = t_int + interval; % Time stamp of the prior means, weights, and covariances
@@ -496,13 +466,15 @@ tpr = t_int + interval; % Time stamp of the prior means, weights, and covariance
 
 for i = 1:K
     if (idx_meas ~= 0) % i.e. there exists a measurement
-        R_vv = [0.05*partial_ts(idx_meas,2), 0, 0; 0 7.2722e-6, 0; 0, 0, 7.2722e-6].^2;
+        R_vv = [R_f*partial_ts(idx_meas,2), 0, 0; 0 theta_f*7.2722e-6, 0; 0, 0, theta_f*7.2722e-6].^2;
         Hxk = linHx(mu_c{i}); % Linearize about prior mean component
         h = @(x) [sqrt(x(1)^2 + x(2)^2 + x(3)^2); atan2(x(2),x(1)); pi/2 - acos(x(3)/sqrt(x(1)^2 + x(2)^2 + x(3)^2))]; % Nonlinear measurement model
-        zt = noised_obs(idx_meas,2:4)';
+        zt = noised_obs(idx_meas,2:4)'; % For noisy measurements
+        % zt = partial_ts(idx_meas,2:4)'; % For perfect measurements (keeping sensor noise constant)
+        resid1(:,i) = zt - h(mu_c{i});
       
         % [mu_p{i}, P_p{i}] = ukfUpdate(zt, R_vv, mu_c{i}, P_c{i}, h);
-        [mu_p{i}, P_p{i}] = kalmanUpdate(zt, cPoints{i}, R_vv, mu_c{i}, P_c{i}, h);
+        [mu_p{i}, P_p{i}, z_corr1(:,i)] = kalmanUpdate(zt, cPoints{i}, R_vv, mu_c{i}, P_c{i}, h);
         
         % Weight update
         num = wm(i)*gaussProb(zt, h(mu_c{i}), Hxk*P_c{i}*Hxk' + R_vv);
@@ -516,6 +488,8 @@ for i = 1:K
         wp(i) = wm(i);
         mu_p{i} = mu_c{i};
         P_p{i} = P_c{i};
+        zt = zeros(3,1);
+        R_vv = zeros(3);
     end
 end
 
@@ -677,8 +651,8 @@ hold off;
 
 sg = sprintf('Timestep: %3.4f Hours (Posterior)', time2hr*noised_obs(idx_meas,1));
 sgtitle(sg);
-saveas(gcf,'./Simulations/Timestep_0_2B.png', 'png')
-% saveas(gcf,'./Simulations/Different Orbit Simulations/Timestep_0_2B.png', 'png')
+% saveas(gcf,'./Simulations/Timestep_0_2B.png', 'png')
+saveas(gcf,'./Simulations/Different Orbit Simulations/Timestep_0_2B.png', 'png')
 
 % At this point, we have shown a PGM-I propagation and update step. The
 % next step is to utilize this PGM-I update across all time steps during
@@ -687,56 +661,112 @@ saveas(gcf,'./Simulations/Timestep_0_2B.png', 'png')
 % the GMM tracks the truth over the interval.
 
 % Find and set the start and end times to simulation
-[idx_meas, c_meas] = find(abs(hdR(:,1) - tpr) < 1e-10);
-interval = hdR(idx_meas,c_meas) - hdR(idx_meas-1,c_meas);
+% [idx_meas, c_meas] = find(abs(hdR(:,1) - tpr) < 1e-10);
+% interval = hdR(idx_meas,c_meas) - hdR(idx_meas-1,c_meas);
 
-% l_filt = 2; % Number of total time steps that the filter is run (i.e. filter length)
+% l_filt = 5; % Number of total time steps that the filter is run (i.e. filter length)
 % t_end = tpr + l_filt*interval;
 % t_end = hdR(idx_meas + (l_filt - 1), c_meas); % Add small epsilon to avoid roundoff
 
-[idx_crit, ~] = find(abs(noised_obs(:,1) - cTimes(6)) < 1e-10); % Find the index of the last observation before the half-day gap
+[idx_crit, ~] = find(abs(noised_obs(:,1) - cTimes(1)) < 1e-10); % Find the index of the last observation before the half-day gap
 t_end = noised_obs(idx_crit,1); % First observation of new pass + one more time step
 % t_end = cTimes(2);
 l_filt = int32((t_end - tpr)/interval + 1); % Filter time length
 
-% Find time step at which we can observe the target again
-% [idx_lastObs, ~] = find(abs(noised_obs(:,1) - hdR(end,1)) < 1e-10); % Find the index of the last observation before the half-day gap
-% t_end = noised_obs(idx_lastObs+1, 1) - 1*interval; % Final time step before we can re-incorporate observations
-% l_filt = int32((noised_obs(idx_lastObs+1,1) - 1*interval - tpr)/interval + 1); % Filter time length
+% Find time step of truth propagation corresponding to cTimes(end)
+[idx_crit_tmp, ~] = find(abs(full_ts(:,1) - t_end) < 1e-10);
+idx_meas_tmp = find(abs(full_ts(:,2) - Xprop_truth(1)) < 1e-10); 
 
 tau = 0;
-
+ent_HPH = zeros(l_filt,1);
+ent_R = zeros(l_filt,1);
 ent2 = zeros(l_filt+1,1);
 ent1 = zeros(l_filt+1,length(mu_c{1})); 
+resids = zeros(length(noised_obs(1,:))-1, l_filt, K); % Tracking residuals/innovations over time
+z_corrs = zeros(length(noised_obs(1,2:4)), l_filt, K);
+innov_comps = zeros(length(zt), l_filt);
+enkfSwitch = 0; % idx_meas_tmp = idx_meas;
+
+%{
+for i = 1:6
+    ent(1,i) = abs(max(X0cloud(:,i)) - min(X0cloud(:,i)));
+end
+%}
 
 ent2(1) = log(det(cov(X0cloud)));
 ent2(2) = log(det(cov(Xp_cloud)));
 ent1(1,:) = getDiagCov(X0cloud);
 
-for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for easier propagation
+Hx = linHx(mean(X0cloud,1));
+ent_HPH(1) = log(det(Hx*cov(Xp_cloud)*Hx'));
+ent_R(1) = log(det(R_vv));
+resids(:,1,:) = resid1;
+z_corrs(:,1,:) = z_corr1;
+sw = 0; % Switch variable for number of clusters
 
-    % Resampling Step
-    if(idx_meas ~= 0)
-        Xp_cloud = Xm_cloud;
-        parfor i = 1:Lp
+Xp_cloud = zeros(Lp,6);
+
+parfor i = 1:Lp % We use Lp instead of L so that the number of particles helps with the clustering/update step later
+    [Xp_cloud(i,:), ~] = drawFrom2(wp, mu_p, P_p); 
+end 
+
+for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for easier propagation
+% for ts = idx_meas_tmp:(idx_crit_tmp-1)
+    
+    % Propagation Step (If observations occured previous step)
+    % to = full_ts(ts,1);
+ 
+    %{
+    if (idx_meas ~= 0) % If previous timestep had a measurement, resample.
+        % fprintf('Measurement Index: %3d\n', idx_meas);
+        Xp_cloud = zeros(Lp,6);
+        parfor i = 1:Lp % We use Lp instead of L so that the number of particles helps with the clustering/update step later
             [Xp_cloud(i,:), ~] = drawFrom2(wp, mu_p, P_p); 
         end 
+        ent1(tau+2,:) = getDiagCov(Xp_cloud);
+    else
+        Xp_cloud = Xm_cloud;
+    end
+    %}
+
+    if(abs(tpr - t_end) < 1e-10) % End of the trajectory
+       c_id = zeros(Lp*5,1);
+       parfor i = 1:(Lp*5)
+           [Xp_cloudp(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
+       end
+    
+       Xcloud = Xp_cloudp; save('iodCloud_highTol.mat', 'Xcloud');
+       save('noisedObs_highTol.mat', "noised_obs");
+       t_int = tpr; save('t_int.mat', 't_int');
     end
 
+    % tpr = full_ts(ts+1,1);
+    
     ent1(tau+2,:) = getDiagCov(Xp_cloud);
-
-    % Propagation Step
     Xm_cloud = propagate(Xp_cloud, to, interval);
+    % Xprop_truth = [full_ts(ts+1, 2:4), full_vts(ts+1, 2:4)];
+
+    idx_trth = find(abs(to - full_ts(:,1)) < 1e-10);
+    Xprop_truth = [full_ts(idx_trth+1, 2:4), full_vts(idx_trth+1, 2:4)];
+    % Xprop_truth = propagate(Xprop_truth, to, interval);
 
     % Verification Step
     tpr = to + interval; % Time stamp of the prior means, weights, and covariances
     [idx_meas, ~] = find(abs(noised_obs(:,1) - tpr) < 1e-10); % Find row with time
     tau = tau + 1;
 
-    if(idx_meas ~= 0)  
+    if (idx_meas ~= 0)  
         % Split propagated cloud into position and velocity data before
         % normalization.
-        K = Kn;
+
+        % if(abs(tpr - 48/time2hr) < 1e-10 || tpr < 48/time2hr) % At or before second pass begins
+        if(ent2(tau+1) > -2000 && enkfSwitch == 0)
+            K = Kn;
+        else
+            K = 1;
+            enkfSwitch = 1;
+        end
+        idx_meas_prev = idx_meas;
 
         rc = Xm_cloud(:,1:3);
         vc = Xm_cloud(:,4:6);
@@ -751,12 +781,7 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
         norm_vc = (vc - mean_vc)./norm(std_vc); % Normalizing the velocity
     
         Xm_norm = [norm_rc, norm_vc];
-    
-        % Verification Step
-        [idx_meas, ~] = find(abs(noised_obs(:,1) - tpr) < 1e-10); % Find row with time
 
-        fprintf("Timestamp: %1.5f\n", tpr*time2hr);
-        
         % Cluster using K-means clustering algorithm
         [idx, ~] = kmeans(Xm_norm, K);
 
@@ -764,6 +789,8 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
         mu_c = cell(K, 1); mu_p = mu_c;
         P_c = cell(K, 1); P_p = P_c;
         wm = zeros(K, 1); wp = wm;
+
+        fprintf("Timestamp: %4.5f\n", tpr*time2hr);
 
         % Calculate covariances and weights for each cluster
         parfor k = 1:K
@@ -787,25 +814,28 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
             mu_mExp(k,:) = mu_c{k};
         end
 
-        [idx_trth, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
-        Xprop_truth = [full_ts(idx_trth,2:4), full_vts(idx_trth,2:4)]';
+        % [idx_trth, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
+        % Xprop_truth = [full_ts(idx_trth,2:4), full_vts(idx_trth,2:4)]';
 
-        zc = noised_obs(idx_meas,2:4)'; % Presumption: An observation occurs at this time step
+        zc = noised_obs(idx_meas,2:4)'; 
         xto = zc(1)*cos(zc(2))*cos(zc(3)); 
         yto = zc(1)*sin(zc(2))*cos(zc(3)); 
         zto = zc(1)*sin(zc(3)); 
-        rto = [xto, yto, zto];
+        rto = dist2km*[xto, yto, zto];
 
         legend_string = {};
-        parfor k = 1:K
-            R_vv = [0.05*partial_ts(idx_meas,2), 0, 0; 0 7.2722e-6, 0; 0, 0, 7.2722e-6].^2;
+        for k = 1:K
+            R_vv = [R_f*partial_ts(idx_meas,2), 0, 0; 0 theta_f*7.2722e-6, 0; 0, 0, theta_f*7.2722e-6].^2;
             Hxk = linHx(mu_c{k}); % Linearize about prior mean component
             legend_string{k} = sprintf('Distribution %i',k);
+            ent_HPH(tau+1) = ent_HPH(tau+1) + wm(k)*det(P_c{k});
             % legend_string{K+k} = sprintf('\\omega =  %1.4f, l = %1.4d', wm(k), gaussProb(zc, h(mu_c{k}), Hxk*P_c{k}*Hxk' + R_vv));
         end
-        % legend_string{K+1} = "Centroids";
-        legend_string{K+1} = "Truth";
 
+        ent_HPH(tau+1) = log(ent_HPH(tau+1));
+        ent_R(tau+1) = log(det(R_vv)); % R_vv is the same for all components
+
+        % if(min(abs(tpr - cTimes)) < 1e-10) % Use for beginnings and ends of passes only
         if(1) % Use for all time steps
             % legend_string{K+1} = "Centroids";
             legend_string{K+1} = "Truth";
@@ -1017,8 +1047,8 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
             sgt = sprintf('Timestep: %3.4f Hours (Prior)', tpr*time2hr);
             sgtitle(sgt);
     
-            sg = sprintf('./Simulations/Timestep_%i_1A.png', tau);
-            % sg = sprintf('./Simulations/Different Orbit Simulations/Timestep_%i_1A.png', tau);
+            % sg = sprintf('./Simulations/Timestep_%i_1A.png', tau);
+            sg = sprintf('./Simulations/Different Orbit Simulations/Timestep_%i_1A.png', tau);
             saveas(f, sg, 'png');
             close(f);
     
@@ -1055,8 +1085,8 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
     
             plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(2), 'kx', ... 
                 'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string);
-            % hold on;
-            % plot(rto(1), rto(2), 'o', 'MarkerSize', 10, 'LineWidth', 3);
+            hold on;
+            plot(rto(1), rto(2), 'o', 'MarkerSize', 10, 'LineWidth', 3);
             title('X-Y');
             xlabel('X (km.)');
             ylabel('Y (km.)');
@@ -1076,8 +1106,8 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
             end
             plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(3), 'kx', ... 
                 'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string);
-            % hold on;
-            % plot(rto(1), rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
+            hold on;
+            plot(rto(1), rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
             title('X-Z');
             xlabel('X (km.)');
             ylabel('Z (km.)');
@@ -1101,8 +1131,8 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
             end
             plot(dist2km*Xprop_truth(2), dist2km*Xprop_truth(3), 'kx', ... 
                 'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string);
-            % hold on;
-            % plot(rto(2), rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
+            hold on;
+            plot(rto(2), rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
             title('Y-Z');
             xlabel('Y (km.)');
             ylabel('Z (km.)');
@@ -1169,8 +1199,8 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
             sgt = sprintf('Timestep: %3.4f Hours (Prior)', tpr*time2hr);
             sgtitle(sgt);
     
-            sg = sprintf('./Simulations/Timestep_%i_1B.png', tau);
-            % sg = sprintf('./Simulations/Different Orbit Simulations/Timestep_%i_1B.png', tau);
+            % sg = sprintf('./Simulations/Timestep_%i_1B.png', tau);
+            sg = sprintf('./Simulations/Different Orbit Simulations/Timestep_%i_1B.png', tau);
             saveas(f, sg, 'png');
             close(f);
         end
@@ -1185,17 +1215,17 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
             end
     
             % t_truth = to + interval;
-            [idx_final, ~] = find(abs(full_ts(:,1) - (to+interval)) < 1e-10);
-            Xprop_truth = [full_ts(idx_final,2:4), full_vts(idx_final,2:4)]';
-    
-            % Show where observation lies (position only)
-            if(idx_meas ~= 0)
-                zc = noised_obs(idx_meas,2:4)'; % Presumption: An observation occurs at this time step
-                xto = zc(1)*cos(zc(2))*cos(zc(3)); 
-                yto = zc(1)*sin(zc(2))*cos(zc(3)); 
-                zto = zc(1)*sin(zc(3)); 
-                rto = [xto, yto, zto];
-            end
+            % [idx_final, ~] = find(abs(full_ts(:,1) - (to+interval)) < 1e-10);
+            % Xprop_truth = [full_ts(idx_final,2:4), full_vts(idx_final,2:4)]';
+            % 
+            % % Show where observation lies (position only)
+            % if (idx_meas ~= 0)
+            %     zc = noised_obs(idx_meas,2:4)'; % Presumption: An observation occurs at this time step
+            %     xto = zc(1)*cos(zc(2))*cos(zc(3)); 
+            %     yto = zc(1)*sin(zc(2))*cos(zc(3)); 
+            %     zto = zc(1)*sin(zc(3)); 
+            %     rto = [xto, yto, zto];
+            % end
     
             % Plot planar projections
             figure(8)
@@ -1275,13 +1305,15 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
 
         % Update Step
         for i = 1:K
-            R_vv = [0.05*partial_ts(idx_meas,2), 0, 0; 0 7.2722e-6, 0; 0, 0, 7.2722e-6].^2;
+            R_vv = [R_f*partial_ts(idx_meas,2), 0, 0; 0 theta_f*7.2722e-6, 0; 0, 0, theta_f*7.2722e-6].^2;
             Hxk = linHx(mu_c{i}); % Linearize about prior mean component
             h = @(x) [sqrt(x(1)^2 + x(2)^2 + x(3)^2); atan2(x(2),x(1)); pi/2 - acos(x(3)/sqrt(x(1)^2 + x(2)^2 + x(3)^2))]; % Nonlinear measurement model
             zt = noised_obs(idx_meas,2:4)';
+            resids(:,tau+1,i) = zt - h(mu_c{i});
     
-            % [mu_p{i}, P_p{i}] = ukfUpdate(zt, R_vv, mu_c{i}, P_c{i}, h);
-            [mu_p{i}, P_p{i}] = kalmanUpdate(zt, cPoints{i}, R_vv, mu_c{i}, P_c{i}, h);
+            % [mu_p{i}, P_p{i}] = kalmanUpdate(zt, Hxk, R_vv, mu_c{i}', P_c{i}, h);
+            [mu_p{i}, P_p{i}] = ukfUpdate(zt, R_vv, mu_c{i}, P_c{i}, h);
+            % [mu_p{i}, P_p{i}, z_corrs(:,tau+1,i)] = kalmanUpdate(zt, cPoints{i}, R_vv, mu_c{i}, P_c{i}, h);
             P_p{i} = (P_p{i} + P_p{i}')/2;
             % P_p{i} = P_p{i} + 1e-10*P_p{i}*eye(length(mu_p{i})); % Add small quantity to avoid the lack of a positive definite matrix 
         
@@ -1295,34 +1327,54 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
             wp(i) = num/den;
         end
 
+        % At this point, we have our posterior means, posterior weights,
+        % and posterior covariances.
+        innov_sum = 0;
+        for i = 1:K
+            innov_sum = innov_sum + wm(i)*(zt - h(mu_c{i})); % Weigh the innovations
+        end
+        innov_comps(:,tau+1) = innov_sum; 
+
     else
-        fprintf("Timestamp: %1.5f\n", tpr*time2hr);
+        fprintf("Timestamp: %4.5f (No Obs)\n", tpr*time2hr);
 
         mu_p = cell(1, 1); 
         P_p = cell(1, 1); 
         wm = zeros(1, 1);
-
+        
         Xp_cloud = Xm_cloud;
         wp = [1];
         mu_p{1} = mean(Xp_cloud);
         P_p{1} = cov(Xp_cloud);
     end
 
-    Xp_cloudp = zeros(L, length(Xprop_truth));
-    c_id = zeros(L,1);
-    parfor i = 1:L
-        [Xp_cloudp(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
-    end
-
-    [idx_trth, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
-    Xprop_truth = [full_ts(idx_trth,2:4), full_vts(idx_trth,2:4)];
-
-    if(idx_meas ~= 0)
-        K = Kn;
+    %{
+    if (idx_meas ~= 0)
+        % if(abs(tpr - 48/time2hr) < 1e-10 || tpr < 48/time2hr) % At or before second pass begins
+        if(ent2(tau+1) > -2000 && enkfSwitch == 0)
+            K = Kn;
+        else
+            K = 1;
+            enkfSwitch = 1;
+        end
     else
         K = 1;
     end
+    %}
 
+    % Resampling Step
+    if (idx_meas ~= 0)
+        Xp_cloudp = zeros(Lp, length(Xprop_truth));
+        c_id = zeros(Lp,1);
+        parfor i = 1:Lp
+            [Xp_cloudp(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
+        end
+        Xp_cloud = Xp_cloudp;
+    else
+        Xp_cloudp = Xm_cloud; Xp_cloud = Xp_cloudp;
+    end
+
+    % if(min(abs(tpr - cTimes)) < 1e-10) % Use for beginnings and ends of passes only
     if(1)
 
         % [idx_trth, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
@@ -1543,8 +1595,8 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
         sgt = sprintf('Timestep: %3.4f Hours (Posterior)', tpr*time2hr);
         sgtitle(sgt);
     
-        sg = sprintf('./Simulations/Timestep_%i_2A.png', tau);
-        % sg = sprintf('./Simulations/Different Orbit Simulations/Timestep_%i_2A.png', tau);
+        % sg = sprintf('./Simulations/Timestep_%i_2A.png', tau);
+        sg = sprintf('./Simulations/Different Orbit Simulations/Timestep_%i_2A.png', tau);
         saveas(f, sg, 'png');
         close(f);
     
@@ -1679,8 +1731,8 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
         sgt = sprintf('Timestep: %3.4f Hours (Posterior)', tpr*time2hr);
         sgtitle(sgt);
     
-        sg = sprintf('./Simulations/Timestep_%i_2B.png', tau);
-        % sg = sprintf('./Simulations/Different Orbit Simulations/Timestep_%i_2B.png', tau);
+        % sg = sprintf('./Simulations/Timestep_%i_2B.png', tau);
+        sg = sprintf('./Simulations/Different Orbit Simulations/Timestep_%i_2B.png', tau);
         saveas(f, sg, 'png');
         close(f);
     end
@@ -1695,6 +1747,9 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
     else
         ent2(tau+2) = getKnEntropy(Kn, Xp_cloudp); % Get entropy as if you still are using six clusters
     end
+    
+
+    % fprintf("Posterior Entropy: %1.5d\n", ent2(tau+1));
 
     if (abs(tpr-hdR(end,1)) < 1e-10)
         Xp_cloudp = zeros(L, length(Xprop_truth));
@@ -1703,8 +1758,8 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
             [Xp_cloudp(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
         end
 
-        [idx_trackEnd, ~] = find(abs(full_ts(:,1) - hdR(end,1)) < 1e-10);
-        Xprop_truth = [full_ts(idx_trackEnd,2:4), full_vts(idx_trackEnd,2:4)];
+        % [idx_trackEnd, ~] = find(abs(full_ts(:,1) - hdR(end,1)) < 1e-10);
+        % Xprop_truth = [full_ts(idx_trackEnd,2:4), full_vts(idx_trackEnd,2:4)];
         mu_pExp = zeros(K, length(mu_p{1}));
 
         % Extract means
@@ -1718,80 +1773,99 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
         % Plot planar projections
         figure(5)
         subplot(2,3,1)
-        gscatter(Xp_cloudp(:,1), Xp_cloudp(:,2), c_id);
+        gscatter(dist2km*Xp_cloudp(:,1), dist2km*Xp_cloudp(:,2), c_id);
         hold on;
-        plot(mu_pExp(:,1), mu_pExp(:,2), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
+        plot(dist2km*mu_pExp(:,1), dist2km*mu_pExp(:,2), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
         hold on;
-        plot(Xprop_truth(1), Xprop_truth(2), 'x','MarkerSize', 20, 'LineWidth', 3)
+        plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(2), 'x','MarkerSize', 20, 'LineWidth', 3)
         title('X-Y');
-        xlabel('X');
-        ylabel('Y');
+        xlabel('X (km.)');
+        ylabel('Y (km.)');
         legend(legend_string);
         hold off;
 
         subplot(2,3,2)
-        gscatter(Xp_cloudp(:,1), Xp_cloudp(:,3), c_id);
+        gscatter(dist2km*Xp_cloudp(:,1), dist2km*Xp_cloudp(:,3), c_id);
         hold on;
-        plot(mu_pExp(:,1), mu_pExp(:,3), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
+        plot(dist2km*mu_pExp(:,1), dist2km*mu_pExp(:,3), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
         hold on;
-        plot(Xprop_truth(1), Xprop_truth(3), 'x','MarkerSize', 20, 'LineWidth', 3)
+        plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(3), 'x','MarkerSize', 20, 'LineWidth', 3)
         title('X-Z');
-        xlabel('X');
-        ylabel('Z');
+        xlabel('X (km.)');
+        ylabel('Z (km.)');
         legend(legend_string);
         hold off;
         
         subplot(2,3,3)
-        gscatter(Xp_cloudp(:,2), Xp_cloudp(:,3), c_id);
+        gscatter(dist2km*Xp_cloudp(:,2), dist2km*Xp_cloudp(:,3), c_id);
         hold on;
-        plot(mu_pExp(:,2), mu_pExp(:,3), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
+        plot(dist2km*mu_pExp(:,2), dist2km*mu_pExp(:,3), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
         hold on;
-        plot(Xprop_truth(2), Xprop_truth(3), 'x','MarkerSize', 20, 'LineWidth', 3)
+        plot(dist2km*Xprop_truth(2), dist2km*Xprop_truth(3), 'x','MarkerSize', 20, 'LineWidth', 3)
         title('Y-Z');
-        xlabel('Y');
-        ylabel('Z');
+        xlabel('Y (km.)');
+        ylabel('Z (km.)');
         legend(legend_string);
         hold off;
         
         subplot(2,3,4)
-        gscatter(Xp_cloudp(:,4), Xp_cloudp(:,5), c_id);
+        gscatter(vel2kms*Xp_cloudp(:,4), vel2kms*Xp_cloudp(:,5), c_id);
         hold on;
-        plot(mu_pExp(:,4), mu_pExp(:,5), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
+        plot(vel2kms*mu_pExp(:,4), vel2kms*mu_pExp(:,5), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
         hold on;
-        plot(Xprop_truth(4), Xprop_truth(5), 'x','MarkerSize', 20, 'LineWidth', 3)
+        plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(5), 'x','MarkerSize', 20, 'LineWidth', 3)
         title('Xdot-Ydot');
-        xlabel('Xdot');
-        ylabel('Ydot');
+        xlabel('Xdot (km/s)');
+        ylabel('Ydot (km/s)');
         legend(legend_string);
         hold off;
         
         subplot(2,3,5)
-        gscatter(Xp_cloudp(:,4), Xp_cloudp(:,6), c_id);
+        gscatter(vel2kms*Xp_cloudp(:,4), vel2kms*Xp_cloudp(:,6), c_id);
         hold on;
-        plot(mu_pExp(:,4), mu_pExp(:,6), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
+        plot(vel2kms*mu_pExp(:,4), vel2kms*mu_pExp(:,6), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
         hold on;
-        plot(Xprop_truth(4), Xprop_truth(6), 'x','MarkerSize', 20, 'LineWidth', 3)
+        plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(6), 'x','MarkerSize', 20, 'LineWidth', 3)
         title('Xdot-Zdot');
-        xlabel('Xdot');
-        ylabel('Zdot');
+        xlabel('Xdot (km/s)');
+        ylabel('Zdot (km/s)');
         legend(legend_string);
         hold off;
         
         subplot(2,3,6)
-        gscatter(Xp_cloudp(:,5), Xp_cloudp(:,6), c_id);
+        gscatter(vel2kms*Xp_cloudp(:,5), vel2kms*Xp_cloudp(:,6), c_id);
         hold on;
-        plot(mu_pExp(:,5), mu_pExp(:,6), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
+        plot(vel2kms*mu_pExp(:,5), vel2kms*mu_pExp(:,6), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
         hold on;
-        plot(Xprop_truth(5), Xprop_truth(6), 'x','MarkerSize', 20, 'LineWidth', 3)
+        plot(vel2kms*Xprop_truth(5), vel2kms*Xprop_truth(6), 'x','MarkerSize', 20, 'LineWidth', 3)
         title('Ydot-Zdot');
-        xlabel('Ydot');
-        ylabel('Zdot');
+        xlabel('Ydot (km/s)');
+        ylabel('Zdot (km/s)');
         legend(legend_string);
         hold off;
         
         % sg = sprintf('Time Step: %i', int32((hdR(end,1) - interval - tpr)/interval + 1));
         sgtitle('End of First Pass')
         savefig(gcf, 'endOfTracklet_normK.fig');
+
+    elseif(abs(tpr - cTimes(2)) < 1e-10) % First timestep of the second pass
+        Lp = 1000;
+        Xp_cloudp = zeros(Lp, length(Xprop_truth));
+        %{
+        Xp_cloudp = zeros(Lp*5, length(Xprop_truth));
+        c_id = zeros(Lp*5,1);
+        parfor i = 1:(Lp*5)
+            [Xp_cloudp(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
+        end
+
+        Xcloud = Xp_cloudp; save('iodCloud_highTol.mat', 'Xcloud');
+        save('noisedObs_highTol.mat', "noised_obs");
+        t_int = tpr; save('t_int.mat', 't_int');
+        %}
+
+    elseif(abs(tpr - cTimes(4)) < 1e-10) % First timestep of the third pass
+        Lp = 3000;
+        Xp_cloudp = zeros(Lp, length(Xprop_truth));
 
     elseif(abs(tpr - (t_end-interval)) < 1e-10) % Second to last possible time step
         Xp_cloudp = zeros(L, length(Xprop_truth));
@@ -1800,8 +1874,8 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
             [Xp_cloudp(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
         end
 
-        [idx_stl, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
-        Xprop_truth = [full_ts(idx_stl,2:4), full_vts(idx_stl,2:4)];
+        % [idx_stl, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
+        % Xprop_truth = [full_ts(idx_stl,2:4), full_vts(idx_stl,2:4)];
 
         % Plot planar projections
         figure(7)
@@ -1809,112 +1883,112 @@ for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for 
 
         mu_pExp = zeros(K, length(mu_p{1}));
 
-        if(idx_meas ~= 0)
-            K = Kn;
-        else
-            K = 1;
+        if (idx_meas ~= 0)
+            % if(abs(tpr - 48/time2hr) < 1e-10 || tpr < 48/time2hr) % At or before second pass begins
+            if(ent2(tau+1) > -2000 && enkfSwitch == 0)
+                K = Kn;
+            else
+                K = 1;
+                enkfSwitch = 1;
+            end
         end
 
-        for k = 1:K
+        parfor k = 1:K
             clusterPoints = Xp_cloudp(c_id == k, :);
             mu_pExp(k,:) = mu_p{k};
-            scatter(clusterPoints(:,1), clusterPoints(:,2), 'filled', 'MarkerFaceColor', colors(k));
+            scatter(dist2km*clusterPoints(:,1), dist2km*clusterPoints(:,2), 'filled', 'MarkerFaceColor', colors(k));
             hold on;
         end
 
-        plot(mu_pExp(:,1), mu_pExp(:,2), '+', 'MarkerSize', 10, 'LineWidth', 3);
+        plot(dist2km*mu_pExp(:,1), dist2km*mu_pExp(:,2), '+', 'MarkerSize', 10, 'LineWidth', 3);
         hold on;
-        plot(Xprop_truth(1), Xprop_truth(2), 'kx','MarkerSize', 20, 'LineWidth', 3)
+        plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(2), 'kx','MarkerSize', 20, 'LineWidth', 3)
         title('X-Y');
-        xlabel('X');
-        ylabel('Y');
+        xlabel('X (km.)');
+        ylabel('Y (km.)');
         legend(legend_string);
         hold off;
 
         subplot(2,3,2)
-        for k = 1:K
+        parfor k = 1:K
             clusterPoints = Xp_cloudp(c_id == k, :);
-            scatter(clusterPoints(:,1), clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
+            scatter(dist2km*clusterPoints(:,1), dist2km*clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
             hold on;
         end
-        plot(mu_pExp(:,1), mu_pExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
+        plot(dist2km*mu_pExp(:,1), dist2km*mu_pExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
         hold on;
-        plot(Xprop_truth(1), Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
+        plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
         title('X-Z');
-        xlabel('X');
-        ylabel('Z');
+        xlabel('X (km.)');
+        ylabel('Z (km.)');
         legend(legend_string);
         hold off;
         
         subplot(2,3,3)
-        for k = 1:K
+        parfor k = 1:K
             clusterPoints = Xp_cloudp(c_id == k, :);
-            scatter(clusterPoints(:,2), clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
+            scatter(dist2km*clusterPoints(:,2), dist2km*clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
             hold on;
         end
-        plot(mu_pExp(:,2), mu_pExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
+        plot(dist2km*mu_pExp(:,2), dist2km*mu_pExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
         hold on;
-        plot(Xprop_truth(2), Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
+        plot(dist2km*Xprop_truth(2), dist2km*Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
         title('Y-Z');
-        xlabel('Y');
-        ylabel('Z');
+        xlabel('Y (km.)');
+        ylabel('Z (km.)');
         legend(legend_string);
         hold off;
         
         subplot(2,3,4)
-        for k = 1:K
+        parfor k = 1:K
             clusterPoints = Xp_cloudp(c_id == k, :);
-            scatter(clusterPoints(:,4), clusterPoints(:,5), 'filled', 'MarkerFaceColor', colors(k));
+            scatter(vel2kms*clusterPoints(:,4), vel2kms*clusterPoints(:,5), 'filled', 'MarkerFaceColor', colors(k));
             hold on;
         end
-        plot(mu_pExp(:,4), mu_pExp(:,5), '+', 'MarkerSize', 10, 'LineWidth', 3);
+        plot(vel2kms*mu_pExp(:,4), vel2kms*mu_pExp(:,5), '+', 'MarkerSize', 10, 'LineWidth', 3);
         hold on;
-        plot(Xprop_truth(4), Xprop_truth(5), 'kx','MarkerSize', 20, 'LineWidth', 3)
+        plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(5), 'kx','MarkerSize', 20, 'LineWidth', 3)
         title('Xdot-Ydot');
-        xlabel('Xdot');
-        ylabel('Ydot');
+        xlabel('Xdot (km/s)');
+        ylabel('Ydot (km/s)');
         legend(legend_string);
         hold off;
         
         subplot(2,3,5)
-        for k = 1:K
+        parfor k = 1:K
             clusterPoints = Xp_cloudp(c_id == k, :);
-            scatter(clusterPoints(:,4), clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
+            scatter(vel2kms*clusterPoints(:,4), vel2kms*clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
             hold on;
         end
-        plot(mu_pExp(:,4), mu_pExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
+        plot(vel2kms*mu_pExp(:,4), vel2kms*mu_pExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
         hold on;
-        plot(Xprop_truth(4), Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
+        plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
         title('Xdot-Zdot');
-        xlabel('Xdot');
-        ylabel('Zdot');
+        xlabel('Xdot (km/s)');
+        ylabel('Zdot (km/s)');
         legend(legend_string);
         hold off;
         
         subplot(2,3,6)
-        for k = 1:K
+        parfor k = 1:K
             clusterPoints = Xp_cloudp(c_id == k, :);
-            scatter(clusterPoints(:,5), clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
+            scatter(vel2kms*clusterPoints(:,5), vel2kms*clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
             hold on;
         end
-        plot(mu_pExp(:,5), mu_pExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
+        plot(vel2kms*mu_pExp(:,5), vel2kms*mu_pExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
         hold on;
-        plot(Xprop_truth(5), Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
+        plot(vel2kms*Xprop_truth(5), vel2kms*Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
         title('Ydot-Zdot');
-        xlabel('Ydot');
-        ylabel('Zdot');
+        xlabel('Ydot (km/s)');
+        ylabel('Zdot (km/s)');
         legend(legend_string);
         hold off;
 
-        sg = sprintf('Timestamp: %1.5f', tpr);
+        sg = sprintf('Timestamp: %4.5f', tpr*time2hr);
         sgtitle(sg)
         savefig(gcf, 'secondToLastEstimate.fig');
 
-        K = Kn;
-    elseif(abs(tpr - cTimes(2)) < 1e-10)
-        Lp = 1000;
-    elseif(abs(tpr - cTimes(4)) < 1e-10)
-        Lp = 1500;
+        % K = Kn;
     end
 
 end
@@ -1925,6 +1999,60 @@ parfor i = 1:Lp
     [Xp_cloudp(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
 end
 ent1(end,:) = getDiagCov(Xp_cloudp);
+
+fprintf('Final State Truth:\n')
+disp(Xprop_truth);
+
+% Plot the results
+figure(6)
+
+plot(0:l_filt, ent2)
+% hold on;
+% plot(0:l_filt-1, -130*ones(length(ent2),1))
+xlabel('Filter Step #')
+ylabel('Entropy Metric')
+title('Entropy')
+
+%{
+subplot(2,3,1)
+semilogy(0:l_filt, ent(:,1))
+xlabel('Filter Step #')
+ylabel('Entropy Metric')
+title('Entropy in X')
+
+subplot(2,3,2)
+semilogy(0:l_filt, ent(:,2))
+xlabel('Filter Step #')
+ylabel('Entropy Metric')
+title('Entropy in Y')
+
+subplot(2,3,3)
+semilogy(0:l_filt, ent(:,3))
+xlabel('Filter Step #')
+ylabel('Entropy Metric')
+title('Entropy in Z')
+
+subplot(2,3,4)
+semilogy(0:l_filt, ent(:,4))
+xlabel('Filter Step #')
+ylabel('Entropy Metric')
+title('Entropy in Xdot')
+
+subplot(2,3,5)
+semilogy(0:l_filt, ent(:,5))
+xlabel('Filter Step #')
+ylabel('Entropy Metric')
+title('Entropy in Ydot')
+
+subplot(2,3,6)
+semilogy(0:l_filt, ent(:,6))
+xlabel('Filter Step #')
+ylabel('Entropy Metric')
+title('Entropy in Zdot')
+%}
+
+% savefig(gcf,'./Simulations/Entropy.fig');
+savefig(gcf,'./Simulations/Different Orbit Simulations/Entropy.fig');
 
 figure(7)
 
@@ -1964,25 +2092,41 @@ xlabel('Filter Step #')
 ylabel('\\sigma_Zdot (km/s)')
 title('Zdot Standard Deviation')
 
-savefig(gcf, './Simulations/StDevEvols.fig');
+savefig(gcf, './Simulations/Different Orbit Simulations/StDevEvols.fig');
 
-[idx_end, ~] = find(abs(full_ts(:,1) - t_end) < 1e-10);
-Xprop_truth = [full_ts(idx_end,2:4), full_vts(idx_end,2:4)];
-mu_pExp = zeros(K, length(mu_p{1}));
+figure(9)
+subplot(3,1,1)
+plot(1:l_filt, innov_comps(1,:))
+xlabel('Filter Step #')
+ylabel('Average Error in Range')
+title('Range Innovation')
 
-fprintf('Final State Truth:\n')
-disp(Xprop_truth);
+subplot(3,1,2)
+plot(1:l_filt, innov_comps(2,:))
+xlabel('Filter Step #')
+ylabel('Average Error in Azimuth')
+title('Azimuth Innovation')
 
-% Plot the results
-figure(6)
-plot(0:l_filt, ent2)
+subplot(3,1,3)
+plot(1:l_filt, innov_comps(3,:))
+xlabel('Filter Step #')
+ylabel('Average Error in Elevation')
+title('Elevation Innovation')
+
+% savefig(gcf,'./Simulations/Innovations.fig');
+savefig(gcf,'./Simulations/Different Orbit Simulations/Innovations.fig');
+
+%{
+figure(10)
+plot(0:l_filt-1, ent_HPH)
+hold on;
+plot(0:l_filt-1, ent_R)
 xlabel('Filter Step #')
 ylabel('Entropy Metric')
-title('Entropy')
-savefig(gcf,'./Simulations/Entropy.fig');
+legend('H*P*H^T','R')
+title('Measurement Covariance Entropies')
+savefig(gcf,'Measurement_Entropy.fig')
 
-% Plot the results
-figure(9)
 subplot(2,1,1)
 hold on;
 for k = 1:K
@@ -2021,106 +2165,110 @@ legend(legend_string);
 grid on;
 view(3);
 hold off;
+%}
 
 % Plot planar projections
 figure(10)
 subplot(2,3,1)
 for k = 1:K
     clusterPoints = Xp_cloudp(c_id == k, :);
-    scatter(clusterPoints(:,1), clusterPoints(:,2), 'filled', 'MarkerFaceColor', colors(k));
+    scatter(dist2km*clusterPoints(:,1), dist2km*clusterPoints(:,2), 'filled', 'MarkerFaceColor', colors(k));
     hold on;
 end
-plot(mu_pExp(:,1), mu_pExp(:,2), '+', 'MarkerSize', 10, 'LineWidth', 3);
+plot(dist2km*mu_pExp(:,1), dist2km*mu_pExp(:,2), '+', 'MarkerSize', 10, 'LineWidth', 3);
 hold on;
-plot(Xprop_truth(1), Xprop_truth(2), 'kx','MarkerSize', 20, 'LineWidth', 3)
+plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(2), 'kx','MarkerSize', 20, 'LineWidth', 3)
 title('X-Y');
-xlabel('X');
-ylabel('Y');
+xlabel('X (km.)');
+ylabel('Y (km.)');
 legend(legend_string);
 hold off;
 
 subplot(2,3,2)
 for k = 1:K
     clusterPoints = Xp_cloudp(c_id == k, :);
-    scatter(clusterPoints(:,1), clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
+    scatter(dist2km*clusterPoints(:,1), dist2km*clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
     hold on;
 end
-plot(mu_pExp(:,1), mu_pExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
+plot(dist2km*mu_pExp(:,1), dist2km*mu_pExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
 hold on;
-plot(Xprop_truth(1), Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
+plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
 title('X-Z');
-xlabel('X');
-ylabel('Z');
+xlabel('X (km.)');
+ylabel('Z (km.)');
 legend(legend_string);
 hold off;
 
 subplot(2,3,3)
 for k = 1:K
     clusterPoints = Xp_cloudp(c_id == k, :);
-    scatter(clusterPoints(:,2), clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
+    scatter(dist2km*clusterPoints(:,2), dist2km*clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
     hold on;
 end
-plot(mu_pExp(:,2), mu_pExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
+plot(dist2km*mu_pExp(:,2), dist2km*mu_pExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
 hold on;
-plot(Xprop_truth(2), Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
+plot(dist2km*Xprop_truth(2), dist2km*Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
 title('Y-Z');
-xlabel('Y');
-ylabel('Z');
+xlabel('Y (km.)');
+ylabel('Z (km.)');
 legend(legend_string);
 hold off;
 
 subplot(2,3,4)
 for k = 1:K
     clusterPoints = Xp_cloudp(c_id == k, :);
-    scatter(clusterPoints(:,4), clusterPoints(:,5), 'filled', 'MarkerFaceColor', colors(k));
+    scatter(vel2kms*clusterPoints(:,4), vel2kms*clusterPoints(:,5), 'filled', 'MarkerFaceColor', colors(k));
     hold on;
 end
-plot(mu_pExp(:,4), mu_pExp(:,5), '+', 'MarkerSize', 10, 'LineWidth', 3);
+plot(vel2kms*mu_pExp(:,4), vel2kms*mu_pExp(:,5), '+', 'MarkerSize', 10, 'LineWidth', 3);
 hold on;
-plot(Xprop_truth(4), Xprop_truth(5), 'kx','MarkerSize', 20, 'LineWidth', 3)
+plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(5), 'kx','MarkerSize', 20, 'LineWidth', 3)
 title('Xdot-Ydot');
-xlabel('Xdot');
-ylabel('Ydot');
+xlabel('Xdot (km/s)');
+ylabel('Ydot (km/s)');
 legend(legend_string);
 hold off;
 
 subplot(2,3,5)
 for k = 1:K
     clusterPoints = Xp_cloudp(c_id == k, :);
-    scatter(clusterPoints(:,4), clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
+    scatter(vel2kms*clusterPoints(:,4), vel2kms*clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
     hold on;
 end
-plot(mu_pExp(:,4), mu_pExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
+plot(vel2kms*mu_pExp(:,4), vel2kms*mu_pExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
 hold on;
-plot(Xprop_truth(4), Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
+plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
 title('Xdot-Zdot');
-xlabel('Xdot');
-ylabel('Zdot');
+xlabel('Xdot (km/s)');
+ylabel('Zdot (km/s)');
 legend(legend_string);
 hold off;
 
 subplot(2,3,6)
 for k = 1:K
     clusterPoints = Xp_cloudp(c_id == k, :);
-    scatter(clusterPoints(:,5), clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
+    scatter(vel2kms*clusterPoints(:,5), vel2kms*clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
     hold on;
 end
-plot(mu_pExp(:,5), mu_pExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
+plot(vel2kms*mu_pExp(:,5), vel2kms*mu_pExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
 hold on;
-plot(Xprop_truth(5), Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
+plot(vel2kms*Xprop_truth(5), vel2kms*Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
 title('Ydot-Zdot');
-xlabel('Ydot');
-ylabel('Zdot');
+xlabel('Ydot (km/s)');
+ylabel('Zdot (km/s)');
 legend(legend_string);
 hold off;
 
-sg = sprintf('Timestamp: %1.5f', tpr);
+sg = sprintf('Timestamp: %4.5f', tpr*time2hr);
 sgtitle(sg)
 
 % savefig(gcf, 'nextObservedTracklet_normK.fig');
 savefig(gcf, 'finalDistribution_normK.fig');
 %}
 
+save("filter_residuals.mat", "resids");
+save("mean_corrections.mat", "z_corrs");
+save("innov_seq.mat", "innov_comps");
 save("stdevs.mat", "ent1");
 
 % Finish timer
@@ -2162,17 +2310,15 @@ function [Xm] = procNoise(X)
     Xm = mvnrnd(X,Q);
 end
 
-function [Xfit] = stateEstCloud(pf, obTr, tdiff)
+function [Xfit] = stateEstCloud(pf, tf, Rf, obTr, tdiff)
     noised_obs = obTr;
 
     R_t = zeros(3*length(noised_obs(:,1)),1); % We shall diagonalize this later
     mu_t = zeros(3*length(noised_obs(:,1)),1);
 
-    load("partial_ts.mat"); % Noiseless observation data
-
     for i = 1:length(obTr(:,1))
-        mu_t(3*(i-1)+1:3*(i-1)+3, 1) = [partial_ts(i,2); partial_ts(i,3); partial_ts(i,4)];
-        R_t(3*(i-1)+1:3*(i-1)+3, 1) = [0.05*partial_ts(i,2); 7.2722e-6; 7.2722e-6].^2;
+        mu_t(3*(i-1)+1:3*(i-1)+3, 1) = [obTr(i,2); obTr(i,3); obTr(i,4)];
+        R_t(3*(i-1)+1:3*(i-1)+3, 1) = [Rf*obTr(i,2); tf*7.2722e-6; tf*7.2722e-6].^2;
     end
 
     R_t = diag(R_t);
@@ -2186,7 +2332,7 @@ function [Xfit] = stateEstCloud(pf, obTr, tdiff)
 
     hdo = []; % Matrix for a half day observation
     i = 1;
-    while(noised_obs(i+1,1) - noised_obs(i,1) < tdiff) % Add small epsilon due to roundoff error
+    while(noised_obs(i+1,1) - noised_obs(i,1) < (tdiff + 1e-15)) % Add small epsilon due to roundoff error
         hdo(i,:) = noised_obs(i+1,:);
         i = i + 1;
     end
@@ -2372,14 +2518,49 @@ function [x_p, pos] = drawFrom2(w, mu, P)
     x_p = mvnrnd(mu{pos}, P{pos});
 end
 
+function [x_p, pos] = drawFrom(w, mu, P)
+    cmf_w = zeros(length(w),1); % Cumulative mass function of the weights
+    cmf_w(1,1) = w(1);
+    for j = 2:length(w)
+        cmf_w(j,1) = cmf_w(j-1,1) + w(j);
+    end
+
+    wtoken = rand;
+    
+    % Use binary search
+    left = 1;
+    right = length(cmf_w(:,1));
+
+    while (left <= right)
+        mid = floor((left + right) / 2);
+        if (cmf_w(mid) == wtoken)
+            pos = mid;
+            return
+        elseif (cmf_w(mid) < wtoken)
+            left = mid + 1;
+        else
+            right = mid - 1;
+        end
+    end
+    pos = left;
+
+    if(pos > length(mu))
+        pos = length(mu); % Correction for rounding error
+    end
+
+    mu_t = mu{pos};
+    R_t = (P{pos} + P{pos}')/2;
+    x_p = mvnrnd(mu_t, R_t)';
+end
+
 function Xm_cloud = propagate(Xcloud, t_int, interval)
     % Xcloud = zeros(L,length(mu{1}));
     % for i = 1:L
     %     [Xcloud(i,:), ~] = drawFrom(w, mu, P);
     % end
     % 
-    % Xm_cloud = Xcloud;
-    for i = 1:length(Xcloud(:,1))
+    Xm_cloud = Xcloud;
+    parfor i = 1:length(Xcloud(:,1))
         % First, convert from X_{ot} in the topocentric frame to X_{bt} in the
         % synodic frame.
         Xbt = backConvertSynodic(Xcloud(i,:)', t_int);
@@ -2387,8 +2568,11 @@ function Xm_cloud = propagate(Xcloud, t_int, interval)
         % Next, propagate each X_{bt} in your particle cloud by a single time 
         % step and convert back to the topographic frame.
         % Call ode45()
+        % opts = odeset('AbsTol',1e-6,'RelTol',1e-6,'Events', @termSat);
         opts = odeset('Events', @termSat);
-        [~,X] = ode45(@cr3bp_dyn, [0 interval], Xbt, opts); % Assumes termination event (i.e. target enters LEO)
+        % [~,X] = ode45(@cr3bp_dyn, [0 interval], Xbt, opts); % Assumes termination event (i.e. target enters LEO)
+        % Xm_bt = X(end,:)';
+        [~,X] = ode45(@cr3bp_dyn, 0:interval:(interval+1e-11), Xbt, opts);
         Xm_bt = X(end,:)';
         Xm_cloud(i,:) = convertToTopo(Xm_bt, t_int + interval);
         % Xm_cloud(i,:) = procNoise(Xm_cloud(i,:)); % Adds process noise
@@ -2396,11 +2580,11 @@ function Xm_cloud = propagate(Xcloud, t_int, interval)
 end
 
 % Kalman update using particles from each cluster
-function [mu_p, P_p] = kalmanUpdate(zk, Xcloud, R, mu_m, P_m, h)
+function [mu_p, P_p, innov] = kalmanUpdate(zk, Xcloud, R, mu_m, P_m, h)
     N = size(Xcloud,1);
     Zcloud = zeros(N,length(zk));
 
-    for i = 1:N
+    parfor i = 1:N
         Zcloud(i,:) = h(Xcloud(i,:));
     end
     mzk_m = mean(Zcloud,1)';
@@ -2408,7 +2592,7 @@ function [mu_p, P_p] = kalmanUpdate(zk, Xcloud, R, mu_m, P_m, h)
     Pxz = zeros(size(mzk_m, 1), size(P_m, 1));
     Pzz = zeros(size(mzk_m, 1), size(mzk_m, 1));
 
-    for i = 1:N
+    parfor i = 1:N
         dx = Xcloud(i,:)' - mu_m';
         dz = Zcloud(i,:)' - mzk_m;
 
@@ -2420,7 +2604,9 @@ function [mu_p, P_p] = kalmanUpdate(zk, Xcloud, R, mu_m, P_m, h)
     Pzz = Pzz/N + R;
 
     K_k = Pxz'/Pzz;
-    mu_p = mu_m' + K_k*(zk - h(mu_m));
+    innov = zk - h(mu_m);
+    del_mu = K_k*innov;
+    mu_p = mu_m' + del_mu;
     P_p = P_m - K_k*Pzz*K_k';
     
     % mu_p = mu_m' + Pxz'*Pzz^(-1)*(zk - h(mu_m));
@@ -2460,66 +2646,6 @@ function [mu_p, P_p] = ekfUpdate(zk, H, R, mu_m, P_m, h)
     P_p = (P_p + P_p')/2;
 end
 
-function [mu_c, P_c] = ukfProp(t_int, interval, mu_p, P_p)
-    % Generate 2L+1 sigma vectors
-    n = length(mu_p); % Length of state vector
-    alpha = 1e-3;
-    beta = 2;
-    kappa = 0;
-    lambda = alpha^2*(n + kappa) - n;
-
-    % Calculate square root factor
-    P_p = (P_p + P_p')/2;
-
-    [V, D] = eig(P_p);
-    D = max(D,0);
-    P_p = V*D*V';
-
-    S = chol(P_p, 'lower'); % Obtain SRF via Cholesky decomposition
-
-    sigs = zeros(2*n+1, n); % Matrix of sigma vectors
-
-    wm = zeros(1,2*n+1); % Vector of mean weights
-    wc = zeros(1,2*n+1); % Vector of covariance weights
-    
-    % Vectors and weights
-    sigs(1,:) = mu_p; 
-    wm(1) = lambda/(n + lambda);
-    wc(1) = lambda/(n + lambda) - (1 - alpha^2 + beta);
-
-    for i = 2:(n+1)
-        sigs(i,:) = (mu_m' + sqrt(n + lambda)*S(:,i-1))'; 
-        sigs(i+n,:) = (mu_m' - sqrt(n + lambda)*S(:,i-1))';
-
-        wm(i) = 0.5/(n + lambda); wm(i+n) = wm(i);
-        wc(i) = 0.5/(n + lambda); wc(i+n) = wc(i);
-    end
-    
-    prop_sigs = zeros(size(sigs));
-    % Propagation of sigma points
-    for i = 1:length(sigs(i,:))
-        prop_sigs(i,:) = propagate(sigs(i,:), t_int, interval);
-    end
-
-    % Get a priori mean
-    mu_c = zeros(n, 1);
-
-    for i = 1:(2*n+1)
-        mu_c = mu_c + wm(i)*prop_sigs(i,:);
-    end
-
-    P_c = zeros(size(P_p));
-    for i = 1:(2*n+1)
-        P_c = P_c + wc(i) * ((prop_sigs(i,:) - mu_c)*(prop_sigs(i,:) - mu_c)');
-    end
-    
-    P_c = (P_c + P_c')/2;
-
-    [V, D] = eig(P_c);
-    D = max(D,0);
-    P_c = V*D*V';
-end
-
 function [mu_p, P_p] = ukfUpdate(zk, R, mu_m, P_m, h)
     % Generate 2L+1 sigma vectors
     n = length(mu_m); % Length of state vector
@@ -2536,6 +2662,8 @@ function [mu_p, P_p] = ukfUpdate(zk, R, mu_m, P_m, h)
     P_m = V*D*V';
 
     S = chol(P_m, 'lower'); % Obtain SRF via Cholesky decomposition
+    % [V,D] = eig(P_m);
+    % S = V*sqrt(D)*V^(-1); % Obtain SRF via eigenvalue-eigenvector method
 
     sigs = zeros(2*n+1, n); % Matrix of sigma vectors
     zetas = zeros(2*n+1, length(zk));
