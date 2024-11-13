@@ -10,6 +10,7 @@ mu = 1.2150582e-2;
 % x0 = [0.5-mu, -sqrt(3/4), 0, 0, 0, 0]'; % L5 Lagrange Point
 
 x0 = [-0.144158380406153	-0.000697738382717277	0	0.0100115754530300	-3.45931892135987	0]; % Planar Mirror Orbit "Loop-Dee-Loop" Sub-Trajectory
+% x0 = [1.15568 0 0 0 0.03 0]';
 
 % Coordinate system conversions
 dist2km = 384400; % Kilometers per non-dimensionalized distance
@@ -36,7 +37,24 @@ for i = 1:(length(tspan)-1)
    x0 = dx_dt_tmp(end,:); dx_dt(i+1,:) = x0; t(i+1) = tspan(i+1);
 end
 
-% [t,dx_dt] = ode45(@cr3bp_dyn, tspan, x0); % Assumes no termination event
+%{
+% Longer-term scheduling
+tstamp = t(end); % Begin new trajectory where we left off
+end_t = 5;
+tspan = tstamp:(8/time2hr):end_t; % Schedule to take measurements once every 8 hours
+x0_tmp = dx_dt(end,:); t(end) = []; dx_dt(end,:) = []; 
+
+dx_dts = zeros(length(tspan), length(x0)); dx_dts(1,:) = x0_tmp; % Start at end of pass
+ts = zeros(length(tspan),1); ts(1) = tstamp;
+opts = odeset('Events', @termSat);
+for i = 1:(length(tspan)-1)
+    [t_tmp,dx_dt_tmp] = ode45(@cr3bp_dyn, [tspan(i) tspan(i+1)], x0_tmp, opts); % Assumes termination event (i.e. target enters LEO)
+    x0_tmp = dx_dt_tmp(end,:); dx_dts(i+1,:) = x0_tmp; ts(i+1) = t_tmp(end);
+end
+
+t = [t; ts];
+dx_dt = [dx_dt; dx_dts];
+%}
 
 rb = dx_dt(:,1:3); % Position evolutions from barycenter
 vb = dx_dt(:,4:6); % Velocity evolutions from barycenter

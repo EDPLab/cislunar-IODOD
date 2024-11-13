@@ -718,7 +718,7 @@ ent2(2) = log(det(cov(Xp_cloud)));
 ent1(1,:) = getDiagCov(X0cloud);
 
 % for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for easier propagation
-for ts = idx_start:idx_end
+for ts = idx_start:(idx_end-1)
 
     to = full_ts(ts,1);
     interval = full_ts(ts+1,1) - full_ts(ts,1);
@@ -735,6 +735,7 @@ for ts = idx_start:idx_end
 
     % Propagation Step
     Xm_cloud = propagate(Xp_cloud, to, interval);
+    Xprop_truth = propagate(Xprop_truth, to, interval);
 
     % Verification Step
     tpr = to + interval; % Time stamp of the prior means, weights, and covariances
@@ -795,8 +796,8 @@ for ts = idx_start:idx_end
             mu_mExp(k,:) = mu_c{k};
         end
 
-        [idx_trth, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
-        Xprop_truth = [full_ts(idx_trth,2:4), full_vts(idx_trth,2:4)]';
+        % [idx_trth, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
+        % Xprop_truth = [full_ts(idx_trth,2:4), full_vts(idx_trth,2:4)]';
 
         zc = noised_obs(idx_meas,2:4)'; % Presumption: An observation occurs at this time step
         xto = zc(1)*cos(zc(2))*cos(zc(3)); 
@@ -1193,8 +1194,8 @@ for ts = idx_start:idx_end
             end
     
             % t_truth = to + interval;
-            [idx_final, ~] = find(abs(full_ts(:,1) - (to+interval)) < 1e-10);
-            Xprop_truth = [full_ts(idx_final,2:4), full_vts(idx_final,2:4)]';
+            % [idx_final, ~] = find(abs(full_ts(:,1) - (to+interval)) < 1e-10);
+            % Xprop_truth = [full_ts(idx_final,2:4), full_vts(idx_final,2:4)]';
     
             % Show where observation lies (position only)
             if(idx_meas ~= 0)
@@ -1322,8 +1323,8 @@ for ts = idx_start:idx_end
         [Xp_cloudp(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
     end
 
-    [idx_trth, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
-    Xprop_truth = [full_ts(idx_trth,2:4), full_vts(idx_trth,2:4)];
+    % [idx_trth, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
+    % Xprop_truth = [full_ts(idx_trth,2:4), full_vts(idx_trth,2:4)];
 
     if(idx_meas ~= 0)
         K = Kn;
@@ -1711,8 +1712,8 @@ for ts = idx_start:idx_end
             [Xp_cloudp(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
         end
 
-        [idx_trackEnd, ~] = find(abs(full_ts(:,1) - hdR(end,1)) < 1e-10);
-        Xprop_truth = [full_ts(idx_trackEnd,2:4), full_vts(idx_trackEnd,2:4)];
+        % [idx_trackEnd, ~] = find(abs(full_ts(:,1) - hdR(end,1)) < 1e-10);
+        % Xprop_truth = [full_ts(idx_trackEnd,2:4), full_vts(idx_trackEnd,2:4)];
         mu_pExp = zeros(K, length(mu_p{1}));
 
         % Extract means
@@ -1808,8 +1809,8 @@ for ts = idx_start:idx_end
             [Xp_cloudp(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
         end
 
-        [idx_stl, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
-        Xprop_truth = [full_ts(idx_stl,2:4), full_vts(idx_stl,2:4)];
+        % [idx_stl, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
+        % Xprop_truth = [full_ts(idx_stl,2:4), full_vts(idx_stl,2:4)];
 
         % Plot planar projections
         figure(7)
@@ -1974,8 +1975,8 @@ title('Zdot Standard Deviation')
 
 savefig(gcf, './Simulations/StDevEvols.fig');
 
-Xprop_truth = [full_ts(idx_end,2:4), full_vts(idx_end,2:4)];
-mu_pExp = zeros(K, length(mu_p{1}));
+% Xprop_truth = [full_ts(idx_end,2:4), full_vts(idx_end,2:4)];
+% mu_pExp = zeros(K, length(mu_p{1}));
 
 fprintf('Final State Truth:\n')
 disp(Xprop_truth);
