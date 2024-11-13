@@ -694,10 +694,10 @@ interval = hdR(idx_meas,c_meas) - hdR(idx_meas-1,c_meas);
 % t_end = tpr + l_filt*interval;
 % t_end = hdR(idx_meas + (l_filt - 1), c_meas); % Add small epsilon to avoid roundoff
 
-[idx_crit, ~] = find(abs(noised_obs(:,1) - cTimes(6)) < 1e-10); % Find the index of the last observation before the half-day gap
+[idx_crit, ~] = find(abs(noised_obs(:,1) - cTimes(1)) < 1e-10); % Find the index of the last observation before the half-day gap
 t_end = noised_obs(idx_crit,1); % First observation of new pass + one more time step
 % t_end = cTimes(2);
-l_filt = int32((t_end - tpr)/interval + 1); % Filter time length
+% l_filt = int32((t_end - tpr)/interval + 1); % Filter time length
 
 % Find time step at which we can observe the target again
 % [idx_lastObs, ~] = find(abs(noised_obs(:,1) - hdR(end,1)) < 1e-10); % Find the index of the last observation before the half-day gap
@@ -705,6 +705,10 @@ l_filt = int32((t_end - tpr)/interval + 1); % Filter time length
 % l_filt = int32((noised_obs(idx_lastObs+1,1) - 1*interval - tpr)/interval + 1); % Filter time length
 
 tau = 0;
+[idx_end, ~] = find(abs(full_ts(:,1) - t_end) < 1e-10);
+[idx_start, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
+
+l_filt = length(full_ts(idx_start:idx_end,1))+1;
 
 ent2 = zeros(l_filt+1,1);
 ent1 = zeros(l_filt+1,length(mu_c{1})); 
@@ -713,7 +717,11 @@ ent2(1) = log(det(cov(X0cloud)));
 ent2(2) = log(det(cov(Xp_cloud)));
 ent1(1,:) = getDiagCov(X0cloud);
 
-for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for easier propagation
+% for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for easier propagation
+for ts = idx_start:idx_end
+
+    to = full_ts(ts,1);
+    interval = full_ts(ts+1,1) - full_ts(ts,1);
 
     % Resampling Step
     if(idx_meas ~= 0)
@@ -1966,7 +1974,6 @@ title('Zdot Standard Deviation')
 
 savefig(gcf, './Simulations/StDevEvols.fig');
 
-[idx_end, ~] = find(abs(full_ts(:,1) - t_end) < 1e-10);
 Xprop_truth = [full_ts(idx_end,2:4), full_vts(idx_end,2:4)];
 mu_pExp = zeros(K, length(mu_p{1}));
 
