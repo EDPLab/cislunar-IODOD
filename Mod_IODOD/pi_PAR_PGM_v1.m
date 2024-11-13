@@ -1934,6 +1934,7 @@ parfor i = 1:Lp
     [Xp_cloudp(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
 end
 ent1(end,:) = getDiagCov(Xp_cloudp);
+ent2(end) = [];
 
 figure(7)
 
@@ -1983,7 +1984,7 @@ disp(Xprop_truth);
 
 % Plot the results
 figure(6)
-plot(0:l_filt, ent2)
+plot(0:l_filt-1, ent2)
 xlabel('Filter Step #')
 ylabel('Entropy Metric')
 title('Entropy')
