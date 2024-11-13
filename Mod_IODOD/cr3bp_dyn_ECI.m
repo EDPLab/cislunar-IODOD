@@ -10,7 +10,7 @@ mu = 1.2150582e-2;
 % x0 = [0.5-mu, -sqrt(3/4), 0, 0, 0, 0]'; % L5 Lagrange Point
 
 x0 = [-0.144158380406153	-0.000697738382717277	0	0.0100115754530300	-3.45931892135987	0]; % Planar Mirror Orbit "Loop-Dee-Loop" Sub-Trajectory
-% x0 = [1.15568 0 0 0 0.03 0]';
+% x0 = [1.15568 0 0 0 0.4 0]';
 
 % Coordinate system conversions
 dist2km = 384400; % Kilometers per non-dimensionalized distance
@@ -20,7 +20,7 @@ vel2kms = dist2km/(time2hr*60*60); % Kms per non-dimensionalized velocity
 % Define time span
 tstamp = 0; % For long term trajectories 
 % tstamp = 0.3570;
-end_t = 2 - tstamp;
+end_t = 0.35 - tstamp;
 tspan = 0:6.25e-3:end_t; % For our modified trajectory 
 
 % Call ode45()

@@ -1922,8 +1922,8 @@ for ts = idx_start:(idx_end-1)
         K = Kn;
     elseif(abs(tpr - cTimes(2)) < 1e-10)
         Lp = 1000;
-    elseif(abs(tpr - cTimes(4)) < 1e-10)
-        Lp = 1500;
+    % elseif(abs(tpr - cTimes(3)) < 1e-10)
+    %     Lp = 1500;
     end
 
 end
