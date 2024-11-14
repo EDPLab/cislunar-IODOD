@@ -37,7 +37,6 @@ for i = 1:(length(tspan)-1)
    x0 = dx_dt_tmp(end,:); dx_dt(i+1,:) = x0; t(i+1) = tspan(i+1);
 end
 
-%{
 % Longer-term scheduling
 tstamp = t(end); % Begin new trajectory where we left off
 end_t = 5;
@@ -54,7 +53,6 @@ end
 
 t = [t; ts];
 dx_dt = [dx_dt; dx_dts];
-%}
 
 rb = dx_dt(:,1:3); % Position evolutions from barycenter
 vb = dx_dt(:,4:6); % Velocity evolutions from barycenter

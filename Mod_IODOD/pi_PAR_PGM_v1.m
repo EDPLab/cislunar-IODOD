@@ -256,7 +256,7 @@ cPoints = cell(K,1);
 for k = 1:K
     cluster_points = Xm_cloud(idx == k, :); % Keep clustering very separate from mean, covariance, weight calculations
     cPoints{k} = cluster_points; cSize = size(cPoints{k});
-    mu_c{k} = mean(cluster_points); % Cell of GMM means 
+    mu_c{k} = mean(cluster_points, 1); % Cell of GMM means 
 
     if(cSize(1) == 1)
         P_c{k} = zeros(length(wm));
@@ -499,12 +499,21 @@ for i = 1:K
         R_vv = [0.05*partial_ts(idx_meas,2), 0, 0; 0 7.2722e-6, 0; 0, 0, 7.2722e-6].^2;
         Hxk = linHx(mu_c{i}); % Linearize about prior mean component
         h = @(x) [sqrt(x(1)^2 + x(2)^2 + x(3)^2); atan2(x(2),x(1)); pi/2 - acos(x(3)/sqrt(x(1)^2 + x(2)^2 + x(3)^2))]; % Nonlinear measurement model
-        zt = noised_obs(idx_meas,2:4)';
+        % zt = noised_obs(idx_meas,2:4)';
+        zt = getNoisyMeas(Xprop_truth, R_vv, h);
+
+        xto = zt(1)*cos(zt(2))*cos(zt(3)); 
+        yto = zt(1)*sin(zt(2))*cos(zt(3)); 
+        zto = zt(1)*sin(zt(3)); 
+        rto = [xto, yto, zto];
       
         % [mu_p{i}, P_p{i}] = ukfUpdate(zt, R_vv, mu_c{i}, P_c{i}, h);
         [mu_p{i}, P_p{i}] = kalmanUpdate(zt, cPoints{i}, R_vv, mu_c{i}, P_c{i}, h);
         
         % Weight update
+        wp = weightUpdate(wm, mu_c, P_c, zt, R_vv, h);
+
+        %{
         num = wm(i)*gaussProb(zt, h(mu_c{i}), Hxk*P_c{i}*Hxk' + R_vv);
         den = 0;
         for j = 1:K
@@ -512,11 +521,13 @@ for i = 1:K
             den = den + wm(j)*gaussProb(zt, h(mu_c{j}), Hxk*P_c{j}*Hxk' + R_vv);
         end
         wp(i) = num/den;
+        %}
     else
         wp(i) = wm(i);
         mu_p{i} = mu_c{i};
         P_p{i} = P_c{i};
     end
+    wp = wp/sum(wp);
 end
 
 Xp_cloud = Xm_cloud;
@@ -581,8 +592,8 @@ for k = 1:K
         'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
     hold on;
 end
-% plot(dist2km*mu_pExp(:,1), dist2km*mu_pExp(:,2), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
-% hold on;
+plot(dist2km*rto(1), dist2km*rto(2), 'o', 'MarkerSize', 10, 'LineWidth', 3);
+hold on;
 plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(2), 'kx','MarkerSize', 20, 'LineWidth', 3)
 title('X-Y');
 xlabel('X (km.)');
@@ -598,8 +609,8 @@ for k = 1:K
         'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
     hold on;
 end
-% plot(dist2km*mu_pExp(:,1), dist2km*mu_pExp(:,3), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
-% hold on;
+plot(dist2km*rto(1), dist2km*rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
+hold on;
 plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
 title('X-Z');
 xlabel('X (km.)');
@@ -615,8 +626,8 @@ for k = 1:K
         'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
     hold on;
 end
-% plot(dist2km*mu_pExp(:,2), dist2km*mu_pExp(:,3), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
-% hold on;
+plot(dist2km*rto(2), dist2km*rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
+hold on;
 plot(dist2km*Xprop_truth(2), dist2km*Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
 title('Y-Z');
 xlabel('Y (km.)');
@@ -694,9 +705,9 @@ interval = hdR(idx_meas,c_meas) - hdR(idx_meas-1,c_meas);
 % t_end = tpr + l_filt*interval;
 % t_end = hdR(idx_meas + (l_filt - 1), c_meas); % Add small epsilon to avoid roundoff
 
-[idx_crit, ~] = find(abs(noised_obs(:,1) - cTimes(1)) < 1e-10); % Find the index of the last observation before the half-day gap
+[idx_crit, ~] = find(abs(noised_obs(:,1) - cTimes(end)) < 1e-10); % Find the index of the last observation before the half-day gap
 t_end = noised_obs(idx_crit,1); % First observation of new pass + one more time step
-% t_end = cTimes(2);
+% t_end = tpr + interval;
 % l_filt = int32((t_end - tpr)/interval + 1); % Filter time length
 
 % Find time step at which we can observe the target again
@@ -716,6 +727,13 @@ ent1 = zeros(l_filt+1,length(mu_c{1}));
 ent2(1) = log(det(cov(X0cloud)));
 ent2(2) = log(det(cov(Xp_cloud)));
 ent1(1,:) = getDiagCov(X0cloud);
+
+save("mu_c.mat", "mu_c");
+save("P_c.mat", "P_c");
+save("wm.mat", "wm");
+save("zt.mat", "zt");
+save("R_vv.mat", "R_vv");
+save("mu_p.mat", "mu_p"); save("P_p.mat", "P_p"); save("wp.mat","wp")
 
 % for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for easier propagation
 for ts = idx_start:(idx_end-1)
@@ -1287,7 +1305,8 @@ for ts = idx_start:(idx_end-1)
             R_vv = [0.05*partial_ts(idx_meas,2), 0, 0; 0 7.2722e-6, 0; 0, 0, 7.2722e-6].^2;
             Hxk = linHx(mu_c{i}); % Linearize about prior mean component
             h = @(x) [sqrt(x(1)^2 + x(2)^2 + x(3)^2); atan2(x(2),x(1)); pi/2 - acos(x(3)/sqrt(x(1)^2 + x(2)^2 + x(3)^2))]; % Nonlinear measurement model
-            zt = noised_obs(idx_meas,2:4)';
+            % zt = noised_obs(idx_meas,2:4)';
+            zt = getNoisyMeas(Xprop_truth, R_vv, h);
     
             % [mu_p{i}, P_p{i}] = ukfUpdate(zt, R_vv, mu_c{i}, P_c{i}, h);
             [mu_p{i}, P_p{i}] = kalmanUpdate(zt, cPoints{i}, R_vv, mu_c{i}, P_c{i}, h);
@@ -1295,6 +1314,9 @@ for ts = idx_start:(idx_end-1)
             % P_p{i} = P_p{i} + 1e-10*P_p{i}*eye(length(mu_p{i})); % Add small quantity to avoid the lack of a positive definite matrix 
         
             % Weight update
+            wp = weightUpdate(wm, mu_c, P_c, zt, R_vv, h);
+
+            %{
             num = wm(i)*gaussProb(zt, h(mu_c{i}), Hxk*P_c{i}*Hxk' + R_vv);
             den = 0;
             for j = 1:K
@@ -1302,7 +1324,8 @@ for ts = idx_start:(idx_end-1)
                 den = den + wm(j)*gaussProb(zt, h(mu_c{j}), Hxk*P_c{j}*Hxk' + R_vv);
             end
             wp(i) = num/den;
-        end
+            %}
+            end
 
     else
         fprintf("Timestamp: %1.5f\n", tpr*time2hr);
@@ -1317,6 +1340,7 @@ for ts = idx_start:(idx_end-1)
         P_p{1} = cov(Xp_cloud);
     end
 
+    wp = wp/sum(wp);
     Xp_cloudp = zeros(L, length(Xprop_truth));
     c_id = zeros(L,1);
     parfor i = 1:L
@@ -2157,6 +2181,20 @@ function Hx = linHx(mu)
     Hx = [Hk_R; Hk_AZ; Hk_EL];
 end
 
+function w = weightUpdate(wc, mu_m, P_m, zk, R, h)
+    w = wc;
+    for i = 1:length(wc)
+        Hxk = linHx(mu_m{i});
+        num = wc(i)*gaussProb(zk, h(mu_m{i}), Hxk*P_m{i}*Hxk' + R);
+        den = 0;
+        for j = 1:length(wc)
+            Hxk = linHx(mu_m{j});
+            den = den + wc(j)*gaussProb(zk, h(mu_m{j}), Hxk*P_m{j}*Hxk' + R);
+        end
+        w(i) = num/den;
+    end
+end
+
 function [dX_coeffs] = polyDeriv(X_coeffs)
     
     dX_coeffs = zeros(1, length(X_coeffs)-1);
@@ -2379,6 +2417,12 @@ function [x_p, pos] = drawFrom2(w, mu, P)
     end
     
     x_p = mvnrnd(mu{pos}, P{pos});
+end
+
+function zk = getNoisyMeas(Xtruth, R, h)
+    mzkm = h(Xtruth);
+    zk = mvnrnd(mzkm, R);
+    zk = zk'; % Make into column vector
 end
 
 function Xm_cloud = propagate(Xcloud, t_int, interval)
