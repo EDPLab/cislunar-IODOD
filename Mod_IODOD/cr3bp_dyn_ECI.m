@@ -18,9 +18,9 @@ time2hr = 4.342*24; % Hours per non-dimensionalized time
 vel2kms = dist2km/(time2hr*60*60); % Kms per non-dimensionalized velocity
 
 % Define time span
-tstamp = 0; % For long term trajectories 
+tstamp1 = 0; % For long term trajectories 
 % tstamp = 0.3570;
-end_t = 0.35 - tstamp;
+end_t = 0.25 - tstamp1;
 tspan = 0:6.25e-3:end_t; % For our modified trajectory 
 
 % Call ode45()
@@ -69,7 +69,7 @@ elevation = 103.8;
 % UTC_vec = datevec(dtUTC); % Convert to vector
 
 UTC_vec = [2024	5	3	2	41	15.1261889999956];
-t_add_dim = tstamp * (4.342);
+t_add_dim = tstamp1 * (4.342);
 UTC_vec = datevec(datetime(UTC_vec) + t_add_dim);
 
 % reo_dim = lla2eci([obs_lat obs_lon elevation], UTC_vec); % Position vector between observer and center of Earth in meters
@@ -80,12 +80,12 @@ rem = [1, 0, 0]'; % Earth center - moon center
 reo_nondim = zeros(length(t),3);
 veo_nondim = zeros(length(t),3); % Array for non-dimensionalized EO velocity vectors
 
-rot = []; % Observer - Target 
-rom = []; % Observer - Moon Center
-vot = []; % Observer - Target Velocity
+rot = zeros(size(rb)); % Observer - Target 
+rom = zeros(size(rb)); % Observer - Moon Center
+vot = zeros(size(rb)); % Observer - Target Velocity
 
 for i = 1:length(rb(:,1))
-    t_add_nondim = t(i) - t(1); % Time since first point of orbit
+    t_add_nondim = t(i) - tstamp1; % Time since first point of orbit
     t_add_dim = t_add_nondim * (4.342); % Conversion to dimensionalized time
     delt_add_dim = t_add_dim - 1/86400; 
 
@@ -100,8 +100,8 @@ for i = 1:length(rb(:,1))
     delt_reodim = lla2eci([obs_lat obs_lon, elevation], delt_updatedUTCvec);
     veo_dim = reo_dim - delt_reodim; 
     
-    R_z = [cos(t_add_nondim + tstamp), -sin(t_add_nondim + tstamp), 0; sin(t_add_nondim + tstamp), cos(t_add_nondim + tstamp), 0; 0, 0, 1];
-    dRz_dt = [-sin(t_add_nondim + tstamp), -cos(t_add_nondim + tstamp), 0; cos(t_add_nondim + tstamp), -sin(t_add_nondim + tstamp), 0; 0, 0, 0];
+    R_z = [cos(t_add_nondim + tstamp1), -sin(t_add_nondim + tstamp1), 0; sin(t_add_nondim + tstamp1), cos(t_add_nondim + tstamp1), 0; 0, 0, 1];
+    dRz_dt = [-sin(t_add_nondim + tstamp1), -cos(t_add_nondim + tstamp1), 0; cos(t_add_nondim + tstamp1), -sin(t_add_nondim + tstamp1), 0; 0, 0, 0];
 
     reo_nondim(i,:) = reo_dim'/(1000*384400); % Conversion to non-dimensional units and ECI frame
     veo_nondim(i,:) = veo_dim'*(4.342*86400)/(1000*384400);
@@ -280,21 +280,21 @@ subplot(3,1,1)
 plot(partial_ts_ECI(:,1), partial_ts_ECI(:,2), 'ro')
 xlabel('Time')
 ylabel('Range (non-dim)')
-xlim([-tstamp t(end)])
+xlim([-tstamp1 t(end)])
 title('Observer Range Measurements (Ideal)')
 
 subplot(3,1,2)
 plot(partial_ts_ECI(:,1), partial_ts_ECI(:,3), 'go')
 xlabel('Time')
 ylabel('Azimuth Angle (rad)')
-xlim([-tstamp t(end)])
+xlim([-tstamp1 t(end)])
 title('Observer Azimuth Angle Measurements (Ideal)')
 
 subplot(3,1,3)
 plot(partial_ts_ECI(:,1), partial_ts_ECI(:,4), 'bo')
 xlabel('Time')
 ylabel('Elevation Angle (rad)')
-xlim([-tstamp t(end)])
+xlim([-tstamp1 t(end)])
 title('Observer Elevation Angle Measurements (Ideal)')
 saveas(gcf, 'observations_ECI.png')
 

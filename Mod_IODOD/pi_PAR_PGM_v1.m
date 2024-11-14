@@ -512,28 +512,24 @@ for i = 1:K
         
         % Weight update
         wp = weightUpdate(wm, mu_c, P_c, zt, R_vv, h);
-
-        %{
-        num = wm(i)*gaussProb(zt, h(mu_c{i}), Hxk*P_c{i}*Hxk' + R_vv);
-        den = 0;
-        for j = 1:K
-            Hxk = linHx(mu_c{j});
-            den = den + wm(j)*gaussProb(zt, h(mu_c{j}), Hxk*P_c{j}*Hxk' + R_vv);
+        while(abs(sum(wp) - 1) > 1e-10)
+            fprintf("Weight Sum: %1.11f\n", sum(wp));
+            wm_tmp = wm; mu_ctmp = mu_c; P_ctmp = P_c; zt_tmp = zt; R_vvtmp = R_vv;
+            wp = weightUpdate(wm_tmp, mu_ctmp, P_ctmp, zt_tmp, R_vvtmp, h);
+            clear wm_tmp mu_ctmp P_ctmp zt_tmp R_vvtmp;
         end
-        wp(i) = num/den;
-        %}
     else
         wp(i) = wm(i);
         mu_p{i} = mu_c{i};
         P_p{i} = P_c{i};
     end
-    wp = wp/sum(wp);
+    
 end
 
 Xp_cloud = Xm_cloud;
 c_id = zeros(length(Xp_cloud(:,1)),1);
 parfor i = 1:L
-    [Xp_cloud(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
+    [Xp_cloud(i,:), c_id(i)] = drawFrom(wp, mu_p, P_p); 
 end
 
 mu_pExp = zeros(K, length(mu_p{1}));
@@ -701,19 +697,8 @@ saveas(gcf,'./Simulations/Timestep_0_2B.png', 'png')
 [idx_meas, c_meas] = find(abs(hdR(:,1) - tpr) < 1e-10);
 interval = hdR(idx_meas,c_meas) - hdR(idx_meas-1,c_meas);
 
-% l_filt = 2; % Number of total time steps that the filter is run (i.e. filter length)
-% t_end = tpr + l_filt*interval;
-% t_end = hdR(idx_meas + (l_filt - 1), c_meas); % Add small epsilon to avoid roundoff
-
-[idx_crit, ~] = find(abs(noised_obs(:,1) - cTimes(end)) < 1e-10); % Find the index of the last observation before the half-day gap
-t_end = noised_obs(idx_crit,1); % First observation of new pass + one more time step
-% t_end = tpr + interval;
-% l_filt = int32((t_end - tpr)/interval + 1); % Filter time length
-
-% Find time step at which we can observe the target again
-% [idx_lastObs, ~] = find(abs(noised_obs(:,1) - hdR(end,1)) < 1e-10); % Find the index of the last observation before the half-day gap
-% t_end = noised_obs(idx_lastObs+1, 1) - 1*interval; % Final time step before we can re-incorporate observations
-% l_filt = int32((noised_obs(idx_lastObs+1,1) - 1*interval - tpr)/interval + 1); % Filter time length
+[idx_crit, ~] = find(abs(full_ts(:,1)) >= (12*24)/time2hr, 1, 'first'); % Find the index of the last time step before a certain number of days have passed since orbit propagation
+t_end = full_ts(idx_crit,1); % First observation of new pass + one more time step
 
 tau = 0;
 [idx_end, ~] = find(abs(full_ts(:,1) - t_end) < 1e-10);
@@ -728,13 +713,6 @@ ent2(1) = log(det(cov(X0cloud)));
 ent2(2) = log(det(cov(Xp_cloud)));
 ent1(1,:) = getDiagCov(X0cloud);
 
-save("mu_c.mat", "mu_c");
-save("P_c.mat", "P_c");
-save("wm.mat", "wm");
-save("zt.mat", "zt");
-save("R_vv.mat", "R_vv");
-save("mu_p.mat", "mu_p"); save("P_p.mat", "P_p"); save("wp.mat","wp")
-
 % for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for easier propagation
 for ts = idx_start:(idx_end-1)
 
@@ -745,7 +723,7 @@ for ts = idx_start:(idx_end-1)
     if(idx_meas ~= 0)
         Xp_cloud = Xm_cloud;
         parfor i = 1:Lp
-            [Xp_cloud(i,:), ~] = drawFrom2(wp, mu_p, P_p); 
+            [Xp_cloud(i,:), ~] = drawFrom(wp, mu_p, P_p); 
         end 
     end
 
@@ -1315,17 +1293,12 @@ for ts = idx_start:(idx_end-1)
         
             % Weight update
             wp = weightUpdate(wm, mu_c, P_c, zt, R_vv, h);
-
-            %{
-            num = wm(i)*gaussProb(zt, h(mu_c{i}), Hxk*P_c{i}*Hxk' + R_vv);
-            den = 0;
-            for j = 1:K
-                Hxk = linHx(mu_c{j});
-                den = den + wm(j)*gaussProb(zt, h(mu_c{j}), Hxk*P_c{j}*Hxk' + R_vv);
+            while(abs(sum(wp) - 1) > 1e-10)
+                wm_tmp = wm; mu_ctmp = mu_c; P_ctmp = P_c; zt_tmp = zt; R_vvtmp = R_vv;
+                wp = weightUpdate(wm_tmp, mu_ctmp, P_ctmp, zt_tmp, R_vvtmp, h);
+                clear wm_tmp mu_ctmp P_ctmp zt_tmp R_vvtmp;
             end
-            wp(i) = num/den;
-            %}
-            end
+        end
 
     else
         fprintf("Timestamp: %1.5f\n", tpr*time2hr);
@@ -1340,11 +1313,11 @@ for ts = idx_start:(idx_end-1)
         P_p{1} = cov(Xp_cloud);
     end
 
-    wp = wp/sum(wp);
+    % wp = wp/sum(wp);
     Xp_cloudp = zeros(L, length(Xprop_truth));
     c_id = zeros(L,1);
     parfor i = 1:L
-        [Xp_cloudp(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
+        [Xp_cloudp(i,:), c_id(i)] = drawFrom(wp, mu_p, P_p); 
     end
 
     % [idx_trth, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
@@ -1584,16 +1557,6 @@ for ts = idx_start:(idx_end-1)
         f = figure('visible','off','Position', get(0,'ScreenSize'));
         f.WindowState = 'maximized';
     
-        %{
-        legend_string = {};
-        parfor k = 1:K
-            % legend_string{k} = sprintf('Contour %i', k);
-            legend_string{k} = sprintf('\\omega = %1.4f', wp(k));
-        end
-        % legend_string{K+1} = "Centroids";
-        legend_string{K+1} = "Truth";
-        %}
-    
         legend_string = "Truth";
     
         subplot(2,3,1)
@@ -1729,225 +1692,10 @@ for ts = idx_start:(idx_end-1)
         ent2(tau+2) = getKnEntropy(Kn, Xp_cloudp); % Get entropy as if you still are using six clusters
     end
 
-    if (abs(tpr-hdR(end,1)) < 1e-10)
-        Xp_cloudp = zeros(L, length(Xprop_truth));
-        c_id = zeros(length(Xp_cloudp(:,1)),1);
-        parfor i = 1:L
-            [Xp_cloudp(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
-        end
-
-        % [idx_trackEnd, ~] = find(abs(full_ts(:,1) - hdR(end,1)) < 1e-10);
-        % Xprop_truth = [full_ts(idx_trackEnd,2:4), full_vts(idx_trackEnd,2:4)];
-        mu_pExp = zeros(K, length(mu_p{1}));
-
-        % Extract means
-        parfor k = 1:K
-            mu_pExp(k,:) = mu_p{k};
-        end
-
-        fprintf('Last Observable Regime Timestep Truth:\n')
-        disp(Xprop_truth);
-
-        % Plot planar projections
-        figure(5)
-        subplot(2,3,1)
-        gscatter(Xp_cloudp(:,1), Xp_cloudp(:,2), c_id);
-        hold on;
-        plot(mu_pExp(:,1), mu_pExp(:,2), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
-        hold on;
-        plot(Xprop_truth(1), Xprop_truth(2), 'x','MarkerSize', 20, 'LineWidth', 3)
-        title('X-Y');
-        xlabel('X');
-        ylabel('Y');
-        legend(legend_string);
-        hold off;
-
-        subplot(2,3,2)
-        gscatter(Xp_cloudp(:,1), Xp_cloudp(:,3), c_id);
-        hold on;
-        plot(mu_pExp(:,1), mu_pExp(:,3), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
-        hold on;
-        plot(Xprop_truth(1), Xprop_truth(3), 'x','MarkerSize', 20, 'LineWidth', 3)
-        title('X-Z');
-        xlabel('X');
-        ylabel('Z');
-        legend(legend_string);
-        hold off;
-        
-        subplot(2,3,3)
-        gscatter(Xp_cloudp(:,2), Xp_cloudp(:,3), c_id);
-        hold on;
-        plot(mu_pExp(:,2), mu_pExp(:,3), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
-        hold on;
-        plot(Xprop_truth(2), Xprop_truth(3), 'x','MarkerSize', 20, 'LineWidth', 3)
-        title('Y-Z');
-        xlabel('Y');
-        ylabel('Z');
-        legend(legend_string);
-        hold off;
-        
-        subplot(2,3,4)
-        gscatter(Xp_cloudp(:,4), Xp_cloudp(:,5), c_id);
-        hold on;
-        plot(mu_pExp(:,4), mu_pExp(:,5), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
-        hold on;
-        plot(Xprop_truth(4), Xprop_truth(5), 'x','MarkerSize', 20, 'LineWidth', 3)
-        title('Xdot-Ydot');
-        xlabel('Xdot');
-        ylabel('Ydot');
-        legend(legend_string);
-        hold off;
-        
-        subplot(2,3,5)
-        gscatter(Xp_cloudp(:,4), Xp_cloudp(:,6), c_id);
-        hold on;
-        plot(mu_pExp(:,4), mu_pExp(:,6), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
-        hold on;
-        plot(Xprop_truth(4), Xprop_truth(6), 'x','MarkerSize', 20, 'LineWidth', 3)
-        title('Xdot-Zdot');
-        xlabel('Xdot');
-        ylabel('Zdot');
-        legend(legend_string);
-        hold off;
-        
-        subplot(2,3,6)
-        gscatter(Xp_cloudp(:,5), Xp_cloudp(:,6), c_id);
-        hold on;
-        plot(mu_pExp(:,5), mu_pExp(:,6), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
-        hold on;
-        plot(Xprop_truth(5), Xprop_truth(6), 'x','MarkerSize', 20, 'LineWidth', 3)
-        title('Ydot-Zdot');
-        xlabel('Ydot');
-        ylabel('Zdot');
-        legend(legend_string);
-        hold off;
-        
-        % sg = sprintf('Time Step: %i', int32((hdR(end,1) - interval - tpr)/interval + 1));
-        sgtitle('End of First Pass')
-        savefig(gcf, 'endOfTracklet_normK.fig');
-
-    elseif(abs(tpr - (t_end-interval)) < 1e-10) % Second to last possible time step
-        Xp_cloudp = zeros(L, length(Xprop_truth));
-        c_id = zeros(L,1);
-        parfor i = 1:L
-            [Xp_cloudp(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
-        end
-
-        % [idx_stl, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
-        % Xprop_truth = [full_ts(idx_stl,2:4), full_vts(idx_stl,2:4)];
-
-        % Plot planar projections
-        figure(7)
-        subplot(2,3,1)
-
-        mu_pExp = zeros(K, length(mu_p{1}));
-
-        if(idx_meas ~= 0)
-            K = Kn;
-        else
-            K = 1;
-        end
-
-        for k = 1:K
-            clusterPoints = Xp_cloudp(c_id == k, :);
-            mu_pExp(k,:) = mu_p{k};
-            scatter(clusterPoints(:,1), clusterPoints(:,2), 'filled', 'MarkerFaceColor', colors(k));
-            hold on;
-        end
-
-        plot(mu_pExp(:,1), mu_pExp(:,2), '+', 'MarkerSize', 10, 'LineWidth', 3);
-        hold on;
-        plot(Xprop_truth(1), Xprop_truth(2), 'kx','MarkerSize', 20, 'LineWidth', 3)
-        title('X-Y');
-        xlabel('X');
-        ylabel('Y');
-        legend(legend_string);
-        hold off;
-
-        subplot(2,3,2)
-        for k = 1:K
-            clusterPoints = Xp_cloudp(c_id == k, :);
-            scatter(clusterPoints(:,1), clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
-            hold on;
-        end
-        plot(mu_pExp(:,1), mu_pExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
-        hold on;
-        plot(Xprop_truth(1), Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
-        title('X-Z');
-        xlabel('X');
-        ylabel('Z');
-        legend(legend_string);
-        hold off;
-        
-        subplot(2,3,3)
-        for k = 1:K
-            clusterPoints = Xp_cloudp(c_id == k, :);
-            scatter(clusterPoints(:,2), clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
-            hold on;
-        end
-        plot(mu_pExp(:,2), mu_pExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
-        hold on;
-        plot(Xprop_truth(2), Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
-        title('Y-Z');
-        xlabel('Y');
-        ylabel('Z');
-        legend(legend_string);
-        hold off;
-        
-        subplot(2,3,4)
-        for k = 1:K
-            clusterPoints = Xp_cloudp(c_id == k, :);
-            scatter(clusterPoints(:,4), clusterPoints(:,5), 'filled', 'MarkerFaceColor', colors(k));
-            hold on;
-        end
-        plot(mu_pExp(:,4), mu_pExp(:,5), '+', 'MarkerSize', 10, 'LineWidth', 3);
-        hold on;
-        plot(Xprop_truth(4), Xprop_truth(5), 'kx','MarkerSize', 20, 'LineWidth', 3)
-        title('Xdot-Ydot');
-        xlabel('Xdot');
-        ylabel('Ydot');
-        legend(legend_string);
-        hold off;
-        
-        subplot(2,3,5)
-        for k = 1:K
-            clusterPoints = Xp_cloudp(c_id == k, :);
-            scatter(clusterPoints(:,4), clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
-            hold on;
-        end
-        plot(mu_pExp(:,4), mu_pExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
-        hold on;
-        plot(Xprop_truth(4), Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
-        title('Xdot-Zdot');
-        xlabel('Xdot');
-        ylabel('Zdot');
-        legend(legend_string);
-        hold off;
-        
-        subplot(2,3,6)
-        for k = 1:K
-            clusterPoints = Xp_cloudp(c_id == k, :);
-            scatter(clusterPoints(:,5), clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
-            hold on;
-        end
-        plot(mu_pExp(:,5), mu_pExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
-        hold on;
-        plot(Xprop_truth(5), Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
-        title('Ydot-Zdot');
-        xlabel('Ydot');
-        ylabel('Zdot');
-        legend(legend_string);
-        hold off;
-
-        sg = sprintf('Timestamp: %1.5f', tpr);
-        sgtitle(sg)
-        savefig(gcf, 'secondToLastEstimate.fig');
-
-        K = Kn;
-    elseif(abs(tpr - cTimes(2)) < 1e-10)
+    if(abs(tpr - cTimes(2)) < 1e-10)
         Lp = 1000;
-    % elseif(abs(tpr - cTimes(3)) < 1e-10)
-    %     Lp = 1500;
+    elseif(abs(tpr - cTimes(3)) < 1e-10)
+        Lp = 1500;
     end
 
 end
@@ -1955,7 +1703,7 @@ end
 Xp_cloudp = zeros(Lp, length(Xprop_truth));
 c_id = zeros(Lp,1);
 parfor i = 1:Lp
-    [Xp_cloudp(i,:), c_id(i)] = drawFrom2(wp, mu_p, P_p); 
+    [Xp_cloudp(i,:), c_id(i)] = drawFrom(wp, mu_p, P_p); 
 end
 ent1(end,:) = getDiagCov(Xp_cloudp);
 ent2(end) = [];
@@ -2183,14 +1931,18 @@ end
 
 function w = weightUpdate(wc, mu_m, P_m, zk, R, h)
     w = wc;
+    den = 0; 
+    wGains = zeros(length(wc),1); Hxk = cell(length(wc),1);
+
+    for j = 1:length(wc)
+        H = linHx(mu_m{j}); Hxk{j} = H;
+        wGains(j) = gaussProb(zk, h(mu_m{j}), Hxk{j}*P_m{j}*Hxk{j}' + R);
+        % wGains(j) = gaussProb(zk, Hxk{j}*mu_m{j}', Hxk{j}*P_m{j}*Hxk{j}' + R);
+        den = den + wc(j)*wGains(j);
+    end
+
     for i = 1:length(wc)
-        Hxk = linHx(mu_m{i});
-        num = wc(i)*gaussProb(zk, h(mu_m{i}), Hxk*P_m{i}*Hxk' + R);
-        den = 0;
-        for j = 1:length(wc)
-            Hxk = linHx(mu_m{j});
-            den = den + wc(j)*gaussProb(zk, h(mu_m{j}), Hxk*P_m{j}*Hxk' + R);
-        end
+        num = wc(i)*wGains(i);
         w(i) = num/den;
     end
 end
@@ -2407,7 +2159,42 @@ function [X_ot] = convertToTopo(X_bt, t_stamp)
     X_ot = [rot_topo'; vot_topo];
 end
 
-function [x_p, pos] = drawFrom2(w, mu, P)
+function [x_p, pos] = drawFrom(w, mu, P)
+    cmf_w = zeros(length(w),1); % Cumulative mass function of the weights
+    cmf_w(1,1) = w(1);
+    for j = 2:length(w)
+        cmf_w(j,1) = cmf_w(j-1,1) + w(j);
+    end
+
+    wtoken = rand;
+    
+    % Use binary search
+    left = 1;
+    right = length(cmf_w(:,1));
+
+    while (left <= right)
+        mid = floor((left + right) / 2);
+        if (cmf_w(mid) == wtoken)
+            pos = mid;
+            return
+        elseif (cmf_w(mid) < wtoken)
+            left = mid + 1;
+        else
+            right = mid - 1;
+        end
+    end
+    pos = left;
+
+    if(pos > length(mu))
+        pos = length(mu); % Correction for rounding error
+    end
+
+    mu_t = mu{pos};
+    R_t = (P{pos} + P{pos}')/2;
+    x_p = mvnrnd(mu_t, R_t)';
+end
+
+function [x_p, pos] = drawFrom3(w, mu, P)
     % Use histcounts for efficient sampling
     pos = histcounts(rand, [0; cumsum(w(:))]);
     pos = find(pos, 1);
