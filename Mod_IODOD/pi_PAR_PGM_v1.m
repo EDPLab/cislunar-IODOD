@@ -116,7 +116,7 @@ t_truth = partial_rts(end,1);
 Xprop_truth = [full_ts(idx_prop+1,2:4), full_vts(idx_prop+1,2:4)]';
 
 L = 500;
-Lp = L;
+Lp = 1*L;
 X0cloud = zeros(L,6);
 
 delete(gcp('nocreate'))
@@ -215,7 +215,7 @@ parfor i = 1:length(X0cloud(:,1))
 end
 
 % Initialize variables
-Kn = 6; % Number of clusters (original)
+Kn = 1; % Number of clusters (original)
 K = Kn; % Number of clusters (changeable)
 % L = 300*Kn; % Make L larger for larger numbers of clusters
 
@@ -494,38 +494,38 @@ P_p = P_c;
 tpr = t_int + interval; % Time stamp of the prior means, weights, and covariances
 [idx_meas, ~] = find(abs(noised_obs(:,1) - tpr) < 1e-10); % Find row with time
 
-for i = 1:K
-    if (idx_meas ~= 0) % i.e. there exists a measurement
-        R_vv = [0.05*partial_ts(idx_meas,2), 0, 0; 0 7.2722e-6, 0; 0, 0, 7.2722e-6].^2;
-        Hxk = linHx(mu_c{i}); % Linearize about prior mean component
-        h = @(x) [sqrt(x(1)^2 + x(2)^2 + x(3)^2); atan2(x(2),x(1)); pi/2 - acos(x(3)/sqrt(x(1)^2 + x(2)^2 + x(3)^2))]; % Nonlinear measurement model
-        % zt = noised_obs(idx_meas,2:4)';
-        zt = getNoisyMeas(Xprop_truth, R_vv, h);
+if (idx_meas ~= 0) % i.e. there exists a measurement
+    R_vv = [R_f*partial_ts(idx_meas,2), 0, 0; 0 theta_f*pi/648000, 0; 0, 0, theta_f*pi/648000].^2;
+    h = @(x) [sqrt(x(1)^2 + x(2)^2 + x(3)^2); atan2(x(2),x(1)); pi/2 - acos(x(3)/sqrt(x(1)^2 + x(2)^2 + x(3)^2))]; % Nonlinear measurement model
+    % zt = noised_obs(idx_meas,2:4)';
+    zt = getNoisyMeas(Xprop_truth, R_vv, h);
 
-        xto = zt(1)*cos(zt(2))*cos(zt(3)); 
-        yto = zt(1)*sin(zt(2))*cos(zt(3)); 
-        zto = zt(1)*sin(zt(3)); 
-        rto = [xto, yto, zto];
-      
+    xto = zt(1)*cos(zt(2))*cos(zt(3)); 
+    yto = zt(1)*sin(zt(2))*cos(zt(3)); 
+    zto = zt(1)*sin(zt(3)); 
+    rto = [xto, yto, zto];
+
+    for i = 1:K 
         % [mu_p{i}, P_p{i}] = ukfUpdate(zt, R_vv, mu_c{i}, P_c{i}, h);
         [mu_p{i}, P_p{i}] = kalmanUpdate(zt, cPoints{i}, R_vv, mu_c{i}, P_c{i}, h);
-        
-        % Weight update
-        wp = weightUpdate(wm, mu_c, P_c, zt, R_vv, h);
-        while(abs(sum(wp) - 1) > 1e-10)
-            fprintf("Weight Sum: %1.11f\n", sum(wp));
-            wm_tmp = wm; mu_ctmp = mu_c; P_ctmp = P_c; zt_tmp = zt; R_vvtmp = R_vv;
-            wp = weightUpdate(wm_tmp, mu_ctmp, P_ctmp, zt_tmp, R_vvtmp, h);
-            clear wm_tmp mu_ctmp P_ctmp zt_tmp R_vvtmp;
-        end
-    else
+    end
+
+    % Weight update
+    wp = weightUpdate(wm, mu_c, P_c, zt, R_vv, h);
+    while(abs(sum(wp) - 1) > 1e-10)
+        fprintf("Weight Sum: %1.11f\n", sum(wp));
+        wm_tmp = wm; mu_ctmp = mu_c; P_ctmp = P_c; zt_tmp = zt; R_vvtmp = R_vv;
+        wp = weightUpdate(wm_tmp, mu_ctmp, P_ctmp, zt_tmp, R_vvtmp, h);
+        clear wm_tmp mu_ctmp P_ctmp zt_tmp R_vvtmp;
+    end
+else
+    for i = 1:K
         wp(i) = wm(i);
         mu_p{i} = mu_c{i};
         P_p{i} = P_c{i};
     end
-    
 end
-
+    
 Xp_cloud = Xm_cloud;
 c_id = zeros(length(Xp_cloud(:,1)),1);
 parfor i = 1:L
@@ -697,7 +697,7 @@ saveas(gcf,'./Simulations/Timestep_0_2B.png', 'png')
 [idx_meas, c_meas] = find(abs(hdR(:,1) - tpr) < 1e-10);
 interval = hdR(idx_meas,c_meas) - hdR(idx_meas-1,c_meas);
 
-[idx_crit, ~] = find(abs(full_ts(:,1)) >= (12*24)/time2hr, 1, 'first'); % Find the index of the last time step before a certain number of days have passed since orbit propagation
+[idx_crit, ~] = find(abs(full_ts(:,1)) >= (28*24)/time2hr, 1, 'first'); % Find the index of the last time step before a certain number of days have passed since orbit propagation
 t_end = full_ts(idx_crit,1); % First observation of new pass + one more time step
 
 tau = 0;
@@ -803,7 +803,7 @@ for ts = idx_start:(idx_end-1)
 
         legend_string = {};
         parfor k = 1:K
-            R_vv = [0.05*partial_ts(idx_meas,2), 0, 0; 0 7.2722e-6, 0; 0, 0, 7.2722e-6].^2;
+            R_vv = [R_f*partial_ts(idx_meas,2), 0, 0; 0 theta_f*pi/648000, 0; 0, 0, theta_f*pi/648000].^2;
             Hxk = linHx(mu_c{k}); % Linearize about prior mean component
             legend_string{k} = sprintf('Distribution %i',k);
             % legend_string{K+k} = sprintf('\\omega =  %1.4f, l = %1.4d', wm(k), gaussProb(zc, h(mu_c{k}), Hxk*P_c{k}*Hxk' + R_vv));
@@ -1279,25 +1279,24 @@ for ts = idx_start:(idx_end-1)
         end
 
         % Update Step
+        R_vv = [R_f*partial_ts(idx_meas,2), 0, 0; 0 theta_f*pi/648000, 0; 0, 0, theta_f*pi/648000].^2;
+        Hxk = linHx(mu_c{i}); % Linearize about prior mean component
+        h = @(x) [sqrt(x(1)^2 + x(2)^2 + x(3)^2); atan2(x(2),x(1)); pi/2 - acos(x(3)/sqrt(x(1)^2 + x(2)^2 + x(3)^2))]; % Nonlinear measurement model
+        % zt = noised_obs(idx_meas,2:4)';
+        zt = getNoisyMeas(Xprop_truth, R_vv, h);
+
         for i = 1:K
-            R_vv = [0.05*partial_ts(idx_meas,2), 0, 0; 0 7.2722e-6, 0; 0, 0, 7.2722e-6].^2;
-            Hxk = linHx(mu_c{i}); % Linearize about prior mean component
-            h = @(x) [sqrt(x(1)^2 + x(2)^2 + x(3)^2); atan2(x(2),x(1)); pi/2 - acos(x(3)/sqrt(x(1)^2 + x(2)^2 + x(3)^2))]; % Nonlinear measurement model
-            % zt = noised_obs(idx_meas,2:4)';
-            zt = getNoisyMeas(Xprop_truth, R_vv, h);
-    
             % [mu_p{i}, P_p{i}] = ukfUpdate(zt, R_vv, mu_c{i}, P_c{i}, h);
             [mu_p{i}, P_p{i}] = kalmanUpdate(zt, cPoints{i}, R_vv, mu_c{i}, P_c{i}, h);
             P_p{i} = (P_p{i} + P_p{i}')/2;
-            % P_p{i} = P_p{i} + 1e-10*P_p{i}*eye(length(mu_p{i})); % Add small quantity to avoid the lack of a positive definite matrix 
-        
-            % Weight update
-            wp = weightUpdate(wm, mu_c, P_c, zt, R_vv, h);
-            while(abs(sum(wp) - 1) > 1e-10)
-                wm_tmp = wm; mu_ctmp = mu_c; P_ctmp = P_c; zt_tmp = zt; R_vvtmp = R_vv;
-                wp = weightUpdate(wm_tmp, mu_ctmp, P_ctmp, zt_tmp, R_vvtmp, h);
-                clear wm_tmp mu_ctmp P_ctmp zt_tmp R_vvtmp;
-            end
+        end
+
+        % Weight update
+        wp = weightUpdate(wm, mu_c, P_c, zt, R_vv, h);
+        while(abs(sum(wp) - 1) > 1e-10)
+            wm_tmp = wm; mu_ctmp = mu_c; P_ctmp = P_c; zt_tmp = zt; R_vvtmp = R_vv;
+            wp = weightUpdate(wm_tmp, mu_ctmp, P_ctmp, zt_tmp, R_vvtmp, h);
+            clear wm_tmp mu_ctmp P_ctmp zt_tmp R_vvtmp;
         end
 
     else
@@ -1313,24 +1312,26 @@ for ts = idx_start:(idx_end-1)
         P_p{1} = cov(Xp_cloud);
     end
 
-    % wp = wp/sum(wp);
-    Xp_cloudp = zeros(L, length(Xprop_truth));
-    c_id = zeros(L,1);
-    parfor i = 1:L
-        [Xp_cloudp(i,:), c_id(i)] = drawFrom(wp, mu_p, P_p); 
-    end
-
-    % [idx_trth, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
-    % Xprop_truth = [full_ts(idx_trth,2:4), full_vts(idx_trth,2:4)];
-
-    if(idx_meas ~= 0)
+    % if(idx_meas ~= 0 && tpr >= cTimes(2))
+    if (idx_meas ~= 0)
         K = Kn;
+        Xp_cloudp = zeros(L, length(Xprop_truth));
+        c_id = zeros(L,1);
+        parfor i = 1:L
+            [Xp_cloudp(i,:), c_id(i)] = drawFrom(wp, mu_p, P_p); 
+        end
     else
         K = 1;
+        Xp_cloudp = Xm_cloud; c_id = ones(L,1);
+    end
+
+    if (tpr >= (10*24)/time2hr)
+        Kn = 6;
+    else
+        Kn = 1;
     end
 
     if(1)
-
         % [idx_trth, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
         % Xprop_truth = [full_ts(idx_trth,2:4), full_vts(idx_trth,2:4)];
 
@@ -1682,6 +1683,12 @@ for ts = idx_start:(idx_end-1)
     end
 
     % if(1)
+    if(idx_meas ~= 0)
+        K = Kn;
+    else
+        K = 1;
+    end
+
     if (idx_meas ~= 0)
         wsum = 0;
         for k = 1:K
@@ -1693,9 +1700,9 @@ for ts = idx_start:(idx_end-1)
     end
 
     if(abs(tpr - cTimes(2)) < 1e-10)
-        Lp = 1000;
-    elseif(abs(tpr - cTimes(3)) < 1e-10)
         Lp = 1500;
+    elseif(abs(tpr - cTimes(3)) < 1e-10)
+        Lp = 2000;
     end
 
 end
@@ -1930,21 +1937,15 @@ function Hx = linHx(mu)
 end
 
 function w = weightUpdate(wc, mu_m, P_m, zk, R, h)
-    w = wc;
-    den = 0; 
     wGains = zeros(length(wc),1); Hxk = cell(length(wc),1);
 
     for j = 1:length(wc)
         H = linHx(mu_m{j}); Hxk{j} = H;
         wGains(j) = gaussProb(zk, h(mu_m{j}), Hxk{j}*P_m{j}*Hxk{j}' + R);
-        % wGains(j) = gaussProb(zk, Hxk{j}*mu_m{j}', Hxk{j}*P_m{j}*Hxk{j}' + R);
-        den = den + wc(j)*wGains(j);
     end
+    den = sum(wc .* wGains)/sum(wGains);
 
-    for i = 1:length(wc)
-        num = wc(i)*wGains(i);
-        w(i) = num/den;
-    end
+    w = (wc .* wGains/sum(wGains))/den;
 end
 
 function [dX_coeffs] = polyDeriv(X_coeffs)

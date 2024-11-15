@@ -20,7 +20,7 @@ vel2kms = dist2km/(time2hr*60*60); % Kms per non-dimensionalized velocity
 % Define time span
 tstamp1 = 0; % For long term trajectories 
 % tstamp = 0.3570;
-end_t = 0.25 - tstamp1;
+end_t = (16/time2hr) - tstamp1;
 tspan = 0:6.25e-3:end_t; % For our modified trajectory 
 
 % Call ode45()
@@ -39,7 +39,7 @@ end
 
 % Longer-term scheduling
 tstamp = t(end); % Begin new trajectory where we left off
-end_t = 5;
+end_t = 7.5;
 tspan = tstamp:(8/time2hr):end_t; % Schedule to take measurements once every 8 hours
 x0_tmp = dx_dt(end,:); t(end) = []; dx_dt(end,:) = []; 
 
@@ -241,7 +241,8 @@ j = 0;
 Rm = 1740/384400; % Nondimensionalized radius of the moon
 
 for i = 1:length(t)
-    if (norm(cross(rot_topo(i,:), rom_topo(i,:)))/norm(rot_topo(i,:)) > Rm)
+    if (norm(cross(rot_topo(i,:), rom_topo(i,:)))/norm(rot_topo(i,:)) > Rm ...
+            && (t(i) <= tstamp || t(i) > 5))
         j = j + 1;
         t_valid(j,1) = t(i);
         rot_valid(j,:) = rot_topo(i,:);
