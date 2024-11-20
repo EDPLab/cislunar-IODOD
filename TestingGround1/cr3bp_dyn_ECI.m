@@ -21,7 +21,7 @@ vel2kms = dist2km/(time2hr*60*60); % Kms per non-dimensionalized velocity
 % Define time span
 tstamp1 = 0; % For long term trajectories 
 % tstamp = 0.3570;
-end_t = 14/time2hr - tstamp1;
+end_t = 48/time2hr - tstamp1;
 tspan = 0:6.25e-3:end_t; % For our modified trajectory 
 
 % Call ode45()
