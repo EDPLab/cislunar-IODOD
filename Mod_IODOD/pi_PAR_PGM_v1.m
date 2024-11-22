@@ -47,8 +47,14 @@ while (i <= length(noised_obs(:,1)))
     i = i + 1;
 end
 
-% Extract the first continuous observation track
+larger_diff = noised_obs(1,end) - noised_obs(1,end-1);
+for j = 2:length(noised_obs(:,1))
+    if (noised_obs(j,1) - noised_obs(j-1,1) > larger_diff)
+        cVal = noised_obs(j,1);
+    end
+end
 
+% Extract the first continuous observation track
 hdo = []; % Matrix for a half day observation
 hdo(1,:) = noised_obs(1,:);
 i = 1;
@@ -193,7 +199,6 @@ sgtitle(sg);
 savefig(gcf, 'iodCloud.fig');
 saveas(gcf, './Simulations/iodCloud.png', 'png');
 % saveas(gcf, './Simulations/Different Orbit Simulations/iodCloud.png', 'png');
-
 
 t_int = hdR_p(end,1); % Time at which we are obtaining a state cloud
 tspan = 0:interval:interval; % Integrate over just a single time step
@@ -741,7 +746,11 @@ for ts = idx_start:(idx_end-1)
     if(idx_meas ~= 0)  
         % Split propagated cloud into position and velocity data before
         % normalization.
-        K = Kn;
+        if (tpr >= (5*24)/time2hr)
+            K = 6;
+        else
+            K = 1;
+        end
 
         rc = Xm_cloud(:,1:3);
         vc = Xm_cloud(:,4:6);
@@ -776,13 +785,6 @@ for ts = idx_start:(idx_end-1)
             cPoints{k} = cluster_points; 
             mu_c{k} = mean(cluster_points, 1); % Cell of GMM means 
             P_c{k} = cov(cluster_points); % Cell of GMM covariances
-
-            % mu_c{k}(1,1:3) = (mu_c{k}(1,1:3).*std_rc) + mean_rc; % Conversion of position
-            % mu_c{k}(1,4:6) = (mu_c{k}(1,4:6).*std_vc) + mean_vc; % Conversion of velocity
-    
-            % cov_norm = cov(cluster_points); % Cell of GMM covariances (Normalized)
-            % Sc = diag([std_rc, std_vc]);
-            % P_c{k} = Sc * cov_norm * Sc;
             wm(k) = size(cluster_points, 1) / size(Xm_cloud, 1); % Vector of (prior) weights
         end
 
@@ -1314,7 +1316,7 @@ for ts = idx_start:(idx_end-1)
 
     % if(idx_meas ~= 0 && tpr >= cTimes(2))
     if (idx_meas ~= 0)
-        K = Kn;
+        % K = Kn;
         Xp_cloudp = zeros(L, length(Xprop_truth));
         c_id = zeros(L,1);
         parfor i = 1:L
@@ -1323,12 +1325,6 @@ for ts = idx_start:(idx_end-1)
     else
         K = 1;
         Xp_cloudp = Xm_cloud; c_id = ones(L,1);
-    end
-
-    if (tpr >= (10*24)/time2hr)
-        Kn = 6;
-    else
-        Kn = 1;
     end
 
     if(1)
@@ -1683,11 +1679,13 @@ for ts = idx_start:(idx_end-1)
     end
 
     % if(1)
+    %{
     if(idx_meas ~= 0)
         K = Kn;
     else
         K = 1;
     end
+    %}
 
     if (idx_meas ~= 0)
         wsum = 0;
@@ -1696,13 +1694,20 @@ for ts = idx_start:(idx_end-1)
         end
         ent2(tau+2) = log(wsum);
     else
-        ent2(tau+2) = getKnEntropy(Kn, Xp_cloudp); % Get entropy as if you still are using six clusters
+        if (tpr >= (5 - 8/time2hr))
+            K = 6;
+        else
+            K = 1;
+        end
+        ent2(tau+2) = getKnEntropy(K, Xp_cloudp); % Get entropy as if you still are using six clusters
     end
 
     if(abs(tpr - cTimes(2)) < 1e-10)
+        Lp = 1250;
+    elseif(abs(tpr - cTimes(4)) < 1e-10)
         Lp = 1500;
-    elseif(abs(tpr - cTimes(3)) < 1e-10)
-        Lp = 2000;
+    elseif(abs(tpr - cVal) < 1e-10)
+        Lp = 2500;
     end
 
 end

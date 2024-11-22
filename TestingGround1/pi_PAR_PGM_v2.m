@@ -125,12 +125,19 @@ L = 500;
 Lp = 1*L;
 X0cloud = zeros(L,6);
 
-delete(gcp('nocreate'))
-parpool(4, 'IdleTimeout', Inf);
+% delete(gcp('nocreate'))
+% parpool(4, 'IdleTimeout', Inf);
 
 parfor i = 1:length(X0cloud(:,1))
     X0cloud(i,:) = stateEstCloud(pf, partial_ts, (partial_ts(2,1) - partial_ts(1,1)) + 1e-15);
 end
+
+t_int = hdR_p(end,1); % Time at which we are obtaining a state cloud
+
+% load("Xm_cloud_tmp.mat", "Xm_cloud"); X0cloud = Xm_cloud;
+% load("t_int_tmp.mat", "to"); t_int = to; 
+% load("noised_obs.mat", "noised_obs");
+% load("Xtruth_tmp.mat", "Xprop_truth"); Xot_truth = Xprop_truth;
 
 figure(1)
 set(gcf, 'units','normalized','outerposition',[0 0 1 1])
@@ -200,9 +207,9 @@ savefig(gcf, 'iodCloud.fig');
 saveas(gcf, './Simulations/iodCloud.png', 'png');
 % saveas(gcf, './Simulations/Different Orbit Simulations/iodCloud.png', 'png');
 
-t_int = hdR_p(end,1); % Time at which we are obtaining a state cloud
 tspan = 0:interval:interval; % Integrate over just a single time step
 Xm_cloud = X0cloud;
+Xprop_truth = propagate(reshape(Xot_truth,[1,length(Xot_truth)]), t_int, interval);
 
 parfor i = 1:length(X0cloud(:,1))
     % First, convert from X_{ot} in the topocentric frame to X_{bt} in the
@@ -214,6 +221,7 @@ parfor i = 1:length(X0cloud(:,1))
      % Call ode45()
     opts = odeset('Events', @termSat);
     [t,X] = ode45(@cr3bp_dyn, [0 interval], Xbt, opts); % Assumes termination event (i.e. target enters LEO)
+
     Xm_bt = X(end,:)';
     Xm_cloud(i,:) = convertToTopo(Xm_bt, t_int + interval);
     % Xm_cloud(i,:) = procNoise(Xm_cloud(i,:)); % Adds process noise
@@ -223,7 +231,6 @@ end
 Kn = 1; % Number of clusters (original)
 Kmax = 6; % Maximum number of clusters possible
 K = Kn; % Number of clusters (changeable)
-% L = 300*Kn; % Make L larger for larger numbers of clusters
 
 mu_c = cell(K, 1);
 P_c = cell(K, 1);
@@ -482,7 +489,7 @@ sgtitle(sg);
 saveas(gcf, './Simulations/Timestep_0_1B', 'png');
 % saveas(gcf, './Simulations/Different Orbit Simulations/Timestep_0_1B', 'png');
 
-Xprop_truth = [full_ts(idx_prop+1,2:4), full_vts(idx_prop+1,2:4)];
+% Xprop_truth = [full_ts(idx_prop+1,2:4), full_vts(idx_prop+1,2:4)];
 fprintf('Truth State: \n');
 disp(Xprop_truth);
 
@@ -501,15 +508,15 @@ tpr = t_int + interval; % Time stamp of the prior means, weights, and covariance
 [idx_meas, ~] = find(abs(noised_obs(:,1) - tpr) < 1e-10); % Find row with time
 
 if (idx_meas ~= 0) % i.e. there exists a measurement
-    R_vv = [R_f*partial_ts(idx_meas,2), 0, 0; 0 theta_f*pi/648000, 0; 0, 0, theta_f*pi/648000].^2;
-    h = @(x) [sqrt(x(1)^2 + x(2)^2 + x(3)^2); atan2(x(2),x(1)); pi/2 - acos(x(3)/sqrt(x(1)^2 + x(2)^2 + x(3)^2))]; % Nonlinear measurement model
+    R_vv = [theta_f*pi/648000, 0; 0, theta_f*pi/648000].^2;
+    h = @(x) [atan2(x(2),x(1)); pi/2 - acos(x(3)/sqrt(x(1)^2 + x(2)^2 + x(3)^2))]; % Nonlinear measurement model
     % zt = noised_obs(idx_meas,2:4)';
     zt = getNoisyMeas(Xprop_truth, R_vv, h);
 
-    xto = zt(1)*cos(zt(2))*cos(zt(3)); 
-    yto = zt(1)*sin(zt(2))*cos(zt(3)); 
-    zto = zt(1)*sin(zt(3)); 
-    rto = [xto, yto, zto];
+    % xto = zt(1)*cos(zt(2))*cos(zt(3)); 
+    % yto = zt(1)*sin(zt(2))*cos(zt(3)); 
+    % zto = zt(1)*sin(zt(3)); 
+    % rto = [xto, yto, zto];
 
     for i = 1:K 
         % [mu_p{i}, P_p{i}] = ukfUpdate(zt, R_vv, mu_c{i}, P_c{i}, h);
@@ -594,8 +601,8 @@ for k = 1:K
         'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
     hold on;
 end
-plot(dist2km*rto(1), dist2km*rto(2), 'o', 'MarkerSize', 10, 'LineWidth', 3);
-hold on;
+% plot(dist2km*rto(1), dist2km*rto(2), 'o', 'MarkerSize', 10, 'LineWidth', 3);
+% hold on;
 plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(2), 'kx','MarkerSize', 20, 'LineWidth', 3)
 title('X-Y');
 xlabel('X (km.)');
@@ -611,8 +618,8 @@ for k = 1:K
         'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
     hold on;
 end
-plot(dist2km*rto(1), dist2km*rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
-hold on;
+% plot(dist2km*rto(1), dist2km*rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
+% hold on;
 plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
 title('X-Z');
 xlabel('X (km.)');
@@ -628,8 +635,8 @@ for k = 1:K
         'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
     hold on;
 end
-plot(dist2km*rto(2), dist2km*rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
-hold on;
+% plot(dist2km*rto(2), dist2km*rto(3), 'o', 'MarkerSize', 10, 'LineWidth', 3);
+% hold on;
 plot(dist2km*Xprop_truth(2), dist2km*Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
 title('Y-Z');
 xlabel('Y (km.)');
@@ -807,7 +814,7 @@ for ts = idx_start:(idx_end-1)
 
         legend_string = {};
         parfor k = 1:K
-            R_vv = [R_f*partial_ts(idx_meas,2), 0, 0; 0 theta_f*pi/648000, 0; 0, 0, theta_f*pi/648000].^2;
+            R_vv = [theta_f*pi/648000, 0; 0, theta_f*pi/648000].^2;
             Hxk = linHx(mu_c{k}); % Linearize about prior mean component
             legend_string{k} = sprintf('Distribution %i',k);
             % legend_string{K+k} = sprintf('\\omega =  %1.4f, l = %1.4d', wm(k), gaussProb(zc, h(mu_c{k}), Hxk*P_c{k}*Hxk' + R_vv));
@@ -1283,9 +1290,9 @@ for ts = idx_start:(idx_end-1)
         end
 
         % Update Step
-        R_vv = [R_f*partial_ts(idx_meas,2), 0, 0; 0 theta_f*pi/648000, 0; 0, 0, theta_f*pi/648000].^2;
+        R_vv = [theta_f*pi/648000, 0; 0, theta_f*pi/648000].^2;
         Hxk = linHx(mu_c{i}); % Linearize about prior mean component
-        h = @(x) [sqrt(x(1)^2 + x(2)^2 + x(3)^2); atan2(x(2),x(1)); pi/2 - acos(x(3)/sqrt(x(1)^2 + x(2)^2 + x(3)^2))]; % Nonlinear measurement model
+        h = @(x) [atan2(x(2),x(1)); pi/2 - acos(x(3)/sqrt(x(1)^2 + x(2)^2 + x(3)^2))]; % Nonlinear measurement model
         % zt = noised_obs(idx_meas,2:4)';
         zt = getNoisyMeas(Xprop_truth, R_vv, h);
 
@@ -1917,6 +1924,7 @@ savefig(gcf, 'finalDistribution_normK.fig');
 %}
 
 save("stdevs.mat", "ent1");
+save("Xm_cloud.mat", "Xm_cloud"); save("t_int.mat", "to"); save("noised_obs.mat", "noised_obs"); save("Xtruth.mat", "Xprop_truth");
 
 % Finish timer
 toc
@@ -1929,9 +1937,9 @@ function pg = gaussProb(x_i, mu, P)
 end
 
 function Hx = linHx(mu)
-    Hk_R = [mu(1)/sqrt(mu(1)^2 + mu(2)^2 + mu(3)^2), ...
-            mu(2)/sqrt(mu(1)^2 + mu(2)^2 + mu(3)^2), ...
-            mu(3)/sqrt(mu(1)^2 + mu(2)^2 + mu(3)^2), 0, 0, 0]; % Range linearization
+    % Hk_R = [mu(1)/sqrt(mu(1)^2 + mu(2)^2 + mu(3)^2), ...
+    %         mu(2)/sqrt(mu(1)^2 + mu(2)^2 + mu(3)^2), ...
+    %         mu(3)/sqrt(mu(1)^2 + mu(2)^2 + mu(3)^2), 0, 0, 0]; % Range linearization
     Hk_AZ = [-mu(2)/(mu(1)^2 + mu(2)^2), mu(1)/(mu(1)^2 + mu(2)^2), 0, 0, 0, 0]; % Azimuth angle linearization
     % Hk_EL = [-(mu(1)*mu(3))/((mu(1)^2 + mu(2)^2 + mu(3)^2)^(1.5)*sqrt(1 - mu(3)^2/(mu(1)^2 + mu(2)^2 +mu(3)^2))), ...
     %         -(mu(2)*mu(3))/((mu(1)^2 + mu(2)^2 + mu(3)^2)^(1.5)*sqrt(1 - mu(3)^2/(mu(1)^2 + mu(2)^2 +mu(3)^2))), ...
@@ -1940,7 +1948,7 @@ function Hx = linHx(mu)
              -(mu(2)*mu(3))/((mu(1)^2 + mu(2)^2 + mu(3)^2)*sqrt(mu(1)^2+mu(2)^2)), ...
              sqrt(mu(1)^2 + mu(2)^2)/(mu(1)^2 + mu(2)^2 + mu(3)^2), 0, 0, 0];
 
-    Hx = [Hk_R; Hk_AZ; Hk_EL];
+    Hx = [Hk_AZ; Hk_EL];
 end
 
 function w = weightUpdate(wc, mu_m, P_m, zk, R, h)
@@ -1949,7 +1957,9 @@ function w = weightUpdate(wc, mu_m, P_m, zk, R, h)
     for j = 1:length(wc)
         H = linHx(mu_m{j}); Hxk{j} = H;
         % wGains(j) = gaussProb(zk, h(mu_m{j}), Hxk{j}*P_m{j}*Hxk{j}' + R);
-        wGains(j) = mvnpdf(zk, h(mu_m{j}), Hxk{j}*P_m{j}*Hxk{j}' + R);
+        Pzz = Hxk{j}*P_m{j}*Hxk{j}' + R;
+        Pzz = (Pzz + Pzz')/2; 
+        wGains(j) = mvnpdf(zk, h(mu_m{j}), Pzz);
     end
     den = sum(wc .* wGains)/sum(wGains);
 

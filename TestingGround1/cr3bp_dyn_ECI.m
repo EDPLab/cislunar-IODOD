@@ -10,8 +10,8 @@ mu = 1.2150582e-2;
 % x0 = [0.5-mu, -sqrt(3/4), 0, 0, 0, 0]'; % L5 Lagrange Point
 
 % x0 = [-0.144158380406153	-0.000697738382717277	0	0.0100115754530300	-3.45931892135987	0]; % Planar Mirror Orbit "Loop-Dee-Loop" Sub-Trajectory
-% x0 = [1.15568 0 0 0 0.04 0]';
-x0 = [1.16429257222878	-0.0144369085836121	0	-0.0389308426824481	0.0153488211249537	0]; % L2 Lagrange Point Approach
+% x0 = [1.15568 0 0 0 0.05 0]';
+x0 = [1.16647396651560	-0.0180633011173645	0	-0.0488517877739226	0.0193582670946048	0]; % L2 Lagrange Point Approach
 
 % Coordinate system conversions
 dist2km = 384400; % Kilometers per non-dimensionalized distance
@@ -20,7 +20,7 @@ vel2kms = dist2km/(time2hr*60*60); % Kms per non-dimensionalized velocity
 
 % Define time span
 tstamp1 = 0; % For long term trajectories 
-% tstamp = 0.3570;
+tstamp = 2000; % To be overidden
 end_t = 48/time2hr - tstamp1;
 tspan = 0:6.25e-3:end_t; % For our modified trajectory 
 
@@ -43,7 +43,7 @@ end
 % Longer-term scheduling
 tstamp = t(end); % Begin new trajectory where we left off
 end_t = (40*24)/time2hr;
-tspan = tstamp:(8/time2hr):end_t; % Schedule to take measurements once every 8 hours
+tspan = tstamp:(10/time2hr):end_t; % Schedule to take measurements once every 8 hours
 x0_tmp = dx_dt(end,:); t(end) = []; dx_dt(end,:) = []; 
 
 dx_dts = zeros(length(tspan), length(x0)); dx_dts(1,:) = x0_tmp; % Start at end of pass
@@ -245,7 +245,7 @@ Rm = 1740/384400; % Nondimensionalized radius of the moon
 
 for i = 1:length(t)
     if (norm(cross(rot_topo(i,:), rom_topo(i,:)))/norm(rot_topo(i,:)) > Rm ...
-            && (t(i) <= tstamp || t(i) > (5 - 8/time2hr)))
+            && (t(i) <= tstamp || t(i) > (28*24)/time2hr))
         j = j + 1;
         t_valid(j,1) = t(i);
         rot_valid(j,:) = rot_topo(i,:);
