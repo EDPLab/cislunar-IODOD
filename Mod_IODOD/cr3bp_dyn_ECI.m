@@ -1,4 +1,4 @@
-    % Define initial conditions
+% Define initial conditions
 mu = 1.2150582e-2;
 % x0 = [0.5-mu, 0.0455, 0, -0.5, 0.5, 0.0]'; % Sample Starting Point
 % x0 = [-1.00506 0 0 -0.5 0.5 0.0]'; % L3 Lagrange Point
