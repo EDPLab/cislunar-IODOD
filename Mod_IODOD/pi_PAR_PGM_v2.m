@@ -47,10 +47,10 @@ while (i <= length(noised_obs(:,1)))
     i = i + 1;
 end
 
-larger_diff = noised_obs(1,end) - noised_obs(1,end-1);
+larger_diff = noised_obs(end,1) - noised_obs(end-1,1);
 for j = 2:length(noised_obs(:,1))
     if (noised_obs(j,1) - noised_obs(j-1,1) > larger_diff)
-        cVal = noised_obs(j,1);
+        cVal = noised_obs(j,1); break;
     end
 end
 
@@ -680,7 +680,7 @@ saveas(gcf,'./Simulations/Timestep_0_2B.png', 'png')
 interval = hdR(idx_meas,c_meas) - hdR(idx_meas-1,c_meas);
 
 [idx_crit, ~] = find(abs(full_ts(:,1)) >= (28*24)/time2hr, 1, 'first'); % Find the index of the last time step before a certain number of days have passed since orbit propagation
-t_end = full_ts(idx_crit,1); % First observation of new pass + one more time step
+t_end = full_ts(end,1); % First observation of new pass + one more time step
 
 tau = 0;
 [idx_end, ~] = find(abs(full_ts(:,1) - t_end) < 1e-10);
@@ -693,7 +693,7 @@ ent1 = zeros(l_filt+1,length(mu_c{1}));
 
 ent2(1) = log(det(cov(X0cloud)));
 ent2(2) = log(det(cov(Xp_cloud)));
-ent1(1,:) = getDiagCov(X0cloud);
+ent1(1,:) = getDiagCov(X0cloud); Xp_cloudp = Xp_cloud;
 
 % for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for easier propagation
 for ts = idx_start:(idx_end-1)
@@ -701,18 +701,18 @@ for ts = idx_start:(idx_end-1)
     to = full_ts(ts,1);
     interval = full_ts(ts+1,1) - full_ts(ts,1);
 
-    % Resampling Step
-    if(idx_meas ~= 0)
-        Xp_cloud = Xm_cloud;
-        parfor i = 1:Lp
-            [Xp_cloud(i,:), ~] = drawFrom(wp, mu_p, P_p); 
-        end 
-    end
+    % Resampling Step (needlessly repeated)
+    % if(idx_meas ~= 0)
+    %     Xp_cloud = Xm_cloud;
+    %     parfor i = 1:Lp
+    %         [Xp_cloud(i,:), ~] = drawFrom(wp, mu_p, P_p); 
+    %     end 
+    % end
 
-    ent1(tau+2,:) = getDiagCov(Xp_cloud);
+    ent1(tau+2,:) = getDiagCov(Xp_cloudp);
 
     % Propagation Step
-    Xm_cloud = propagate(Xp_cloud, to, interval);
+    Xm_cloud = propagate(Xp_cloudp, to, interval);
     Xprop_truth = propagate(Xprop_truth, to, interval);
 
     % Verification Step
@@ -1292,17 +1292,17 @@ for ts = idx_start:(idx_end-1)
         P_p{1} = cov(Xp_cloud);
     end
 
-    % if(idx_meas ~= 0 && tpr >= cTimes(2))
+    % Resampling
     if (idx_meas ~= 0)
         % K = Kn;
-        Xp_cloudp = zeros(L, length(Xprop_truth));
-        c_id = zeros(L,1);
-        parfor i = 1:L
+        Xp_cloudp = zeros(Lp, length(Xprop_truth));
+        c_id = zeros(Lp,1);
+        parfor i = 1:Lp
             [Xp_cloudp(i,:), c_id(i)] = drawFrom(wp, mu_p, P_p); 
         end
     else
         K = 1;
-        Xp_cloudp = Xm_cloud; c_id = ones(L,1);
+        Xp_cloudp = Xm_cloud; c_id = ones(Lp,1);
     end
 
     if(1)
@@ -1688,6 +1688,7 @@ for ts = idx_start:(idx_end-1)
         Lp = 1500;
     elseif(abs(tpr - cVal) < 1e-10)
         Lp = 2500;
+        save("Xm_cloud.mat", "Xp_cloudp"); save("t_int.mat", "tpr"); save("noised_obs.mat", "noised_obs"); save("Xtruth.mat", "Xprop_truth");
     end
 
 end
@@ -1901,11 +1902,6 @@ toc
 
 %% Functions
 
-function pg = gaussProb(x_i, mu, P)
-    n = length(mu);
-    pg = 1/((2*pi)^(n/2)*sqrt(det(P))) * exp(-0.5*(x_i - mu)'*P^(-1)*(x_i - mu));
-end
-
 function Hx = linHx(mu)
     Hk_AZ = [-mu(2)/(mu(1)^2 + mu(2)^2), mu(1)/(mu(1)^2 + mu(2)^2), 0, 0, 0, 0]; % Azimuth angle linearization
     Hk_EL = [-(mu(1)*mu(3))/((mu(1)^2 + mu(2)^2 + mu(3)^2)*sqrt(mu(1)^2+mu(2)^2)), ...
@@ -1913,26 +1909,6 @@ function Hx = linHx(mu)
              sqrt(mu(1)^2 + mu(2)^2)/(mu(1)^2 + mu(2)^2 + mu(3)^2), 0, 0, 0];
 
     Hx = [Hk_AZ; Hk_EL];
-end
-
-function w = weightUpdate2(wc, mu_m, P_m, zk, R, h)
-    wGains = zeros(length(mu_m),1);  
-    particles = 300;
-
-    for j = 1:length(wc)
-        mcp = mvnrnd(mu_m{j}, P_m{j}, particles);
-
-        zPredParticles = zeros(length(zk), particles);
-        for i = 1:particles
-            zPredParticles(:,i) = h(mcp(i,:)');
-        end
-
-        zPredMean = mean(zPredParticles, 2); % Mean in measurement space
-        zPredCov = cov(zPredParticles') + R; % Add measurement noise
-        wGains(j) = mvnpdf(zk', zPredMean', zPredCov);
-    end
-
-    w = wc .* wGains / sum(wc .* wGains);
 end
 
 function w = weightUpdate(wc, cluster_points, idx, zk, R, h)
@@ -2222,7 +2198,7 @@ function Xm_cloud = propagate(Xcloud, t_int, interval)
     %     [Xcloud(i,:), ~] = drawFrom(w, mu, P);
     % end
     % 
-    % Xm_cloud = Xcloud;
+    Xm_cloud = zeros(size(Xcloud));
     for i = 1:length(Xcloud(:,1))
         % First, convert from X_{ot} in the topocentric frame to X_{bt} in the
         % synodic frame.
