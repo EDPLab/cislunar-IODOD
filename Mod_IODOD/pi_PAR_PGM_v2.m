@@ -222,7 +222,7 @@ end
 % Initialize variables
 Kn = 1; % Number of clusters (original)
 K = Kn; % Number of clusters (changeable)
-Kmax = 6; % Maximum number of clusters
+Kmax = 1; % Maximum number of clusters (Kmax = 1 for EnKF)
 
 mu_c = cell(K, 1);
 P_c = cell(K, 1);
