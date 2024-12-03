@@ -802,7 +802,7 @@ for ts = idx_start:(idx_end-1)
             mu_mat = cell2mat(mu_c);
             P_mat = cat(3, P_c{:});
     
-            %{
+            
             f = figure('visible','off','Position', get(0,'ScreenSize'));
             f.WindowState = 'maximized';
     
@@ -1285,8 +1285,9 @@ for ts = idx_start:(idx_end-1)
         mu_p = cell(1, 1); 
         P_p = cell(1, 1); 
         wm = zeros(1, 1);
+        cPoints = cell(1, 1); 
 
-        Xp_cloud = Xm_cloud;
+        Xp_cloud = Xm_cloud; cPoints{1} = Xp_cloud;
         wp = [1];
         mu_p{1} = mean(Xp_cloud);
         P_p{1} = cov(Xp_cloud);
@@ -1326,7 +1327,7 @@ for ts = idx_start:(idx_end-1)
         mu_mat = mu_pExp;
         P_mat = cat(3, P_p{:});
     
-        %{
+        
         f = figure('visible','off','Position', get(0,'ScreenSize'));
         f.WindowState = 'maximized';
     
@@ -1533,17 +1534,19 @@ for ts = idx_start:(idx_end-1)
     
         f = figure('visible','off','Position', get(0,'ScreenSize'));
         f.WindowState = 'maximized';
+
+        fprintf("Plotting Particles at Timestep: %d\n", tau);
     
         legend_string = "Truth";
     
         subplot(2,3,1)
-        parfor k = 1:K
-            cPoints{k} = Xp_cloudp(c_id == k, :);
-            mu_pExp(k,:) = mu_p{k};
-        end
+        % parfor k = 1:K
+        %     cPoints{k} = Xp_cloudp(c_id == k, :);
+        %     mu_pExp(k,:) = mu_p{k};
+        % end
         hold on;
         for k = 1:K
-            scatter(dist2km*cPoints{k}(:,1), dist2km*cPoints{k}(:,2), 'filled', ...
+            scatter(dist2km*Xp_cloudp(c_id == k,1), dist2km*Xp_cloudp(c_id == k,2), 'filled', ...
                 'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
         end
         
@@ -1559,13 +1562,13 @@ for ts = idx_start:(idx_end-1)
         hold off;
     
         subplot(2,3,2)
-        parfor k = 1:K
-            cPoints{k} = Xp_cloudp(c_id == k, :);
-            mu_pExp(k,:) = mu_p{k};
-        end
+        % parfor k = 1:K
+        %     cPoints{k} = Xp_cloudp(c_id == k, :);
+        %     mu_pExp(k,:) = mu_p{k};
+        % end
         hold on;
         for k = 1:K
-            scatter(dist2km*cPoints{k}(:,1), dist2km*cPoints{k}(:,3), 'filled', ...
+            scatter(dist2km*Xp_cloudp(c_id == k,1), dist2km*Xp_cloudp(c_id == k,3), 'filled', ...
                 'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
         end
         plot(dist2km*Xprop_truth(1), dist2km*Xprop_truth(3), 'kx', ...
@@ -1577,13 +1580,13 @@ for ts = idx_start:(idx_end-1)
         hold off;
         
         subplot(2,3,3)
-        parfor k = 1:K
-            cPoints{k} = Xp_cloudp(c_id == k, :);
-            mu_pExp(k,:) = mu_p{k};
-        end
+        % parfor k = 1:K
+        %     cPoints{k} = Xp_cloudp(c_id == k, :);
+        %     mu_pExp(k,:) = mu_p{k};
+        % end
         hold on;
         for k = 1:K
-            scatter(dist2km*cPoints{k}(:,2), dist2km*cPoints{k}(:,3), 'filled', ...
+            scatter(dist2km*Xp_cloudp(c_id == k,2), dist2km*Xp_cloudp(c_id == k,3), 'filled', ...
                 'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
         end
         plot(dist2km*Xprop_truth(2), dist2km*Xprop_truth(3), 'kx', ...
@@ -1595,13 +1598,13 @@ for ts = idx_start:(idx_end-1)
         hold off;
         
         subplot(2,3,4)
-        parfor k = 1:K
-            cPoints{k} = Xp_cloudp(c_id == k, :);
-            mu_pExp(k,:) = mu_p{k};
-        end
+        % parfor k = 1:K
+        %     cPoints{k} = Xp_cloudp(c_id == k, :);
+        %     mu_pExp(k,:) = mu_p{k};
+        % end
         hold on;
         for k = 1:K
-            scatter(vel2kms*cPoints{k}(:,4), vel2kms*cPoints{k}(:,5), 'filled', ...
+            scatter(vel2kms*Xp_cloudp(c_id == k,4), vel2kms*Xp_cloudp(c_id == k,5), 'filled', ...
                 'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
         end
         plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(5), 'kx', ...
@@ -1614,13 +1617,13 @@ for ts = idx_start:(idx_end-1)
         hold off;
         
         subplot(2,3,5)
-        parfor k = 1:K
-            cPoints{k} = Xp_cloudp(c_id == k, :);
-            mu_pExp(k,:) = mu_p{k};
-        end
+        % parfor k = 1:K
+        %     cPoints{k} = Xp_cloudp(c_id == k, :);
+        %     mu_pExp(k,:) = mu_p{k};
+        % end
         hold on;
         for k = 1:K
-            scatter(vel2kms*cPoints{k}(:,4), vel2kms*cPoints{k}(:,6), 'filled', ...
+            scatter(vel2kms*Xp_cloudp(c_id == k,4), vel2kms*Xp_cloudp(c_id == k,6), 'filled', ...
                 'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
         end
         plot(vel2kms*Xprop_truth(4), vel2kms*Xprop_truth(6), 'kx', ...
@@ -1632,13 +1635,13 @@ for ts = idx_start:(idx_end-1)
         hold off;
         
         subplot(2,3,6)
-        parfor k = 1:K
-            cPoints{k} = Xp_cloudp(c_id == k, :);
-            mu_pExp(k,:) = mu_p{k};
-        end
+        % parfor k = 1:K
+        %     cPoints{k} = Xp_cloudp(c_id == k, :);
+        %     mu_pExp(k,:) = mu_p{k};
+        % end
         hold on;
         for k = 1:K
-            scatter(vel2kms*cPoints{k}(:,5), vel2kms*cPoints{k}(:,6), 'filled', ...
+            scatter(vel2kms*Xp_cloudp(c_id == k,5), vel2kms*Xp_cloudp(c_id == k,6), 'filled', ...
                 'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
         end
         plot(vel2kms*Xprop_truth(5), vel2kms*Xprop_truth(6), 'kx', ...
