@@ -222,7 +222,7 @@ end
 % Initialize variables
 Kn = 1; % Number of clusters (original)
 K = Kn; % Number of clusters (changeable)
-Kmax = 1; % Maximum number of clusters (Kmax = 1 for EnKF)
+Kmax = 6; % Maximum number of clusters (Kmax = 1 for EnKF)
 
 mu_c = cell(K, 1);
 P_c = cell(K, 1);
@@ -1016,16 +1016,6 @@ for ts = idx_start:(idx_end-1)
             f = figure('visible','off','Position', get(0,'ScreenSize'));
             f.WindowState = 'maximized';
     
-            %{
-            legend_string = {};
-            parfor k = 1:K
-                % legend_string{k} = sprintf('Contour %i', k);
-                legend_string{k} = sprintf('\\omega = %1.4f', wm(k));
-            end
-            % legend_string{K+1} = "Centroids";
-            legend_string{K+1} = "Truth";
-            %}
-    
             legend_string = "Truth";
     
             subplot(2,3,1)
@@ -1161,6 +1151,35 @@ for ts = idx_start:(idx_end-1)
             sgtitle(sgt);
     
             sg = sprintf('./Simulations/Timestep_%i_1B.png', tau);
+            % sg = sprintf('./Simulations/Different Orbit Simulations/Timestep_%i_1B.png', tau);
+            saveas(f, sg, 'png');
+            close(f);
+
+            f = figure('visible','off','Position', get(0,'ScreenSize'));
+            f.WindowState = 'maximized';
+    
+            legend_string = "Truth";
+            hold on;
+
+            for k = 1:K
+                Zmcloud = zeros(length(cPoints{k}(:,1)), length(zt));
+                for i = 1:length(Zmcloud(:,1))
+                    Zmcloud(i,:) = h(cPoints{k}(i,:))';
+                end
+    
+                Ztruth = h(Xprop_truth)';
+                scatter(180/pi*Zmcloud(:,1), 180/pi*Zmcloud(:,2), 'filled', ...
+                'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+
+                plot(180/pi*Ztruth(1), 180/pi*Ztruth(2), 'kx', ... 
+                'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string);
+                
+                title('AZ-EL')
+                xlabel('Azimuth Angle (deg)')
+                ylabel('Elevation Angle (deg)')
+            end
+
+            sg = sprintf('./Simulations/Timestep_%i_1C.png', tau);
             % sg = sprintf('./Simulations/Different Orbit Simulations/Timestep_%i_1B.png', tau);
             saveas(f, sg, 'png');
             close(f);
@@ -1657,6 +1676,35 @@ for ts = idx_start:(idx_end-1)
     
         sg = sprintf('./Simulations/Timestep_%i_2B.png', tau);
         % sg = sprintf('./Simulations/Different Orbit Simulations/Timestep_%i_2B.png', tau);
+        saveas(f, sg, 'png');
+        close(f);
+
+        f = figure('visible','off','Position', get(0,'ScreenSize'));
+        f.WindowState = 'maximized';
+
+        legend_string = "Truth";
+        hold on;
+
+        for k = 1:K
+            pts = Xp_cloudp(c_id == k, :);
+            Zmcloud = zeros(length(pts(:,1)), length(zt));
+            for i = 1:length(Zmcloud(:,1))
+                Zmcloud(i,:) = h(pts(i,:))';
+            end
+
+            Ztruth = h(Xprop_truth)';
+            scatter(180/pi*Zmcloud(:,1), 180/pi*Zmcloud(:,2), 'filled', ...
+            'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+
+            plot(180/pi*Ztruth(1), 180/pi*Ztruth(2), 'kx', ... 
+            'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string);
+            
+            title('AZ-EL')
+            xlabel('Azimuth Angle (deg)')
+            ylabel('Elevation Angle (deg)')
+        end
+
+        sg = sprintf('./Simulations/Timestep_%i_2C.png', tau);
         saveas(f, sg, 'png');
         close(f);
     end

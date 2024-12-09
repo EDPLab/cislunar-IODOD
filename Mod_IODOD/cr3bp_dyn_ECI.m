@@ -42,7 +42,7 @@ end
 
 % Longer-term scheduling
 tstamp = t(end); % Begin new trajectory where we left off
-end_t = (15*24)/time2hr;
+end_t = (40*24)/time2hr;
 tspan = tstamp:(8/time2hr):end_t; % Schedule to take measurements once every 8 hours
 x0_tmp = dx_dt(end,:); t(end) = []; dx_dt(end,:) = []; 
 
@@ -245,7 +245,7 @@ Rm = 1740/384400; % Nondimensionalized radius of the moon
 
 for i = 1:length(t)
     if (norm(cross(rot_topo(i,:), rom_topo(i,:)))/norm(rot_topo(i,:)) > Rm ...
-            && (t(i) <= tstamp || t(i) > (9*24)/time2hr))
+            && (t(i) <= tstamp || t(i) > (30*24)/time2hr))
         j = j + 1;
         t_valid(j,1) = t(i);
         rot_valid(j,:) = rot_topo(i,:);
