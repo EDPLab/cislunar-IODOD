@@ -19,7 +19,7 @@ time2hr = 4.342*24; % Hours per non-dimensionalized time
 vel2kms = dist2km/(time2hr*60*60); % Kms per non-dimensionalized velocity
 
 Nt = 2; % Number of targets
-Q0 = diag([3/dist2km, 0, 0, 0, 0.005/vel2kms, 0]);
+Q0 = diag([5/dist2km, 0, 0, 0, 0.005/vel2kms, 0]);
 X0 = mvnrnd(x0, Q0, Nt);
 
 % Define time span
@@ -286,7 +286,7 @@ for k = 1:Nt
     j = 0;
     for i = 1:length(t)
         if (norm(cross(rot_topo(i,:), rom_topo(i,:)))/norm(rot_topo(i,:)) > Rm ...
-                && (t(i) <= tstamp || t(i) > (30*24)/time2hr))
+                && (t(i) <= tstamp || t(i) > (28*24)/time2hr))
             j = j + 1;
             T_valid{k}(j) = t(i);
             Rot_valid{k}(j,:) = rot_topo(i,:);
@@ -330,8 +330,8 @@ end
 
 Full_ts = cell(1,2); Full_vts = cell(1,2);
 for i = 1:Nt
-    Full_ts{i} = [T_valid{i}', Rot_valid{i}];
-    Full_vts{i} = [T_valid{i}', Vot_valid{i}];
+    Full_ts{i} = [t, squeeze(Rot_topo(i,:,:))];
+    Full_vts{i} = [t, squeeze(Vot_topo(i,:,:))];
 end
 
 for j = 1:Nt
