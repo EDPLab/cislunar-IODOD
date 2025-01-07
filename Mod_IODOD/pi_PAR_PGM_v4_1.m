@@ -1952,7 +1952,7 @@ savefig(gcf,'./Multi_Sims/Entropy.fig');
 %%
 % Plot the results
 figure(9)
-legend_string = {"Truth 1", "Truth 2"}; Xp_cloudp = cell(1,Nt);
+legend_string = {"Truth 1", "Truth 2"}; 
 
 % for j = 1:Nt
 %     for i = 1:Lp
