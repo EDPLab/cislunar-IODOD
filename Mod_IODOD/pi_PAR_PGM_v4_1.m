@@ -487,7 +487,7 @@ for j = 1:Nt
     for k = 1:K
         clusterPoints = Xm_cloud{j}(idx(:,j) == k, :);
         scatter(dist2km*clusterPoints(:,1), dist2km*clusterPoints(:,2), 'filled', ...
-            'HandleVisibility', 'off', 'MarkerFaceColor', colors(Nt*(j-1)+k));
+            'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
         hold on;
     end
 end
@@ -506,7 +506,7 @@ for j = 1:Nt
     for k = 1:K
         clusterPoints = Xm_cloud{j}(idx(:,j) == k, :);
         scatter(dist2km*clusterPoints(:,1), dist2km*clusterPoints(:,3), 'filled', ...
-            'HandleVisibility', 'off', 'MarkerFaceColor', colors(Nt*(j-1)+k));
+            'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
         hold on;
     end
 end
@@ -525,7 +525,7 @@ for j = 1:Nt
     for k = 1:K
         clusterPoints = Xm_cloud{j}(idx(:,j) == k, :);
         scatter(dist2km*clusterPoints(:,2), dist2km*clusterPoints(:,3), 'filled', ...
-            'HandleVisibility', 'off', 'MarkerFaceColor', colors(Nt*(j-1)+k));
+            'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
         hold on;
     end
 end
@@ -544,7 +544,7 @@ for j = 1:Nt
     for k = 1:K
         clusterPoints = Xm_cloud{j}(idx(:,j) == k, :);
         scatter(vel2kms*clusterPoints(:,4), vel2kms*clusterPoints(:,5), 'filled', ...
-            'HandleVisibility', 'off', 'MarkerFaceColor', colors(Nt*(j-1)+k));
+            'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
         hold on;
     end
 end
@@ -563,7 +563,7 @@ for j = 1:Nt
     for k = 1:K
         clusterPoints = Xm_cloud{j}(idx(:,j) == k, :);
         scatter(vel2kms*clusterPoints(:,4), vel2kms*clusterPoints(:,6), 'filled', ...
-            'HandleVisibility', 'off', 'MarkerFaceColor', colors(Nt*(j-1)+k));
+            'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
         hold on;
     end
 end
@@ -582,7 +582,7 @@ for j = 1:Nt
     for k = 1:K
         clusterPoints = Xm_cloud{j}(idx(:,j) == k, :);
         scatter(vel2kms*clusterPoints(:,5), vel2kms*clusterPoints(:,6), 'filled', ...
-            'HandleVisibility', 'off', 'MarkerFaceColor', colors(Nt*(j-1)+k));
+            'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
         hold on;
     end
 end
@@ -703,7 +703,7 @@ for j = 1:Nt
         clusterPoints = Xp_cloud{j}(c_id(:,j) == k, :);
         mu_pExp(k,:) = mu_p{k};
         scatter(dist2km*clusterPoints(:,1), dist2km*clusterPoints(:,2), 'filled', ...
-            'HandleVisibility', 'off', 'MarkerFaceColor', colors(Nt*(j-1)+k));
+            'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
         hold on;
     end
 end
@@ -723,7 +723,7 @@ for j = 1:Nt
         clusterPoints = Xp_cloud{j}(c_id(:,j) == k, :);
         mu_pExp(k,:) = mu_p{k};
         scatter(dist2km*clusterPoints(:,1), dist2km*clusterPoints(:,3), 'filled', ...
-            'HandleVisibility', 'off', 'MarkerFaceColor', colors(Nt*(j-1)+k));
+            'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
         hold on;
     end
 end
@@ -743,7 +743,7 @@ for j = 1:Nt
         clusterPoints = Xp_cloud{j}(c_id(:,j) == k, :);
         mu_pExp(k,:) = mu_p{k};
         scatter(dist2km*clusterPoints(:,2), dist2km*clusterPoints(:,3), 'filled', ...
-            'HandleVisibility', 'off', 'MarkerFaceColor', colors(Nt*(j-1)+k));
+            'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
         hold on;
     end
 end
@@ -763,7 +763,7 @@ for j = 1:Nt
         clusterPoints = Xp_cloud{j}(c_id(:,j) == k, :);
         mu_pExp(k,:) = mu_p{k};
         scatter(vel2kms*clusterPoints(:,4), vel2kms*clusterPoints(:,5), 'filled', ... 
-            'HandleVisibility', 'off', 'MarkerFaceColor', colors(Nt*(j-1)+k));
+            'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
         hold on;
     end
 end
@@ -783,7 +783,7 @@ for j = 1:Nt
         clusterPoints = Xp_cloud{j}(c_id(:,j) == k, :);
         mu_pExp(k,:) = mu_p{k};
         scatter(vel2kms*clusterPoints(:,4), vel2kms*clusterPoints(:,6), 'filled', ... 
-            'HandleVisibility', 'off', 'MarkerFaceColor', colors(Nt*(j-1)+k));
+            'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
         hold on;
     end
 end
@@ -803,7 +803,7 @@ for j = 1:Nt
         clusterPoints = Xp_cloud{j}(c_id(:,j) == k, :);
         mu_pExp(k,:) = mu_p{k};
         scatter(vel2kms*clusterPoints(:,5), vel2kms*clusterPoints(:,6), 'filled', ... 
-            'HandleVisibility', 'off', 'MarkerFaceColor', colors(Nt*(j-1)+k));
+            'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
         hold on;
     end
 end
@@ -1211,7 +1211,7 @@ for ts = idx_start:(idx_end-1)
         for b = 1:Nt
             for k = 1:K
                 scatter(dist2km*cPoints{k,b}(:,1), dist2km*cPoints{k,b}(:,2), 'filled', ...
-                'MarkerFaceColor', colors(Nt*(b-1)+k), 'HandleVisibility', 'off');
+                'MarkerFaceColor', colors(K*(b-1)+k), 'HandleVisibility', 'off');
                 hold on;
             end
         end
@@ -1232,7 +1232,7 @@ for ts = idx_start:(idx_end-1)
         for b = 1:Nt
             for k = 1:K
                 scatter(dist2km*cPoints{k,b}(:,1), dist2km*cPoints{k,b}(:,3), 'filled', ...
-                'MarkerFaceColor', colors(Nt*(b-1)+k), 'HandleVisibility', 'off');
+                'MarkerFaceColor', colors(K*(b-1)+k), 'HandleVisibility', 'off');
                 hold on;
             end
         end
@@ -1252,7 +1252,7 @@ for ts = idx_start:(idx_end-1)
         for b = 1:Nt
             for k = 1:K
                 scatter(dist2km*cPoints{k,b}(:,2), dist2km*cPoints{k,b}(:,3), 'filled', ...
-                'MarkerFaceColor', colors(Nt*(b-1)+k), 'HandleVisibility', 'off');
+                'MarkerFaceColor', colors(K*(b-1)+k), 'HandleVisibility', 'off');
                 hold on;
             end
         end
@@ -1272,7 +1272,7 @@ for ts = idx_start:(idx_end-1)
         for b = 1:Nt
             for k = 1:K
                 scatter(vel2kms*cPoints{k,b}(:,4), vel2kms*cPoints{k,b}(:,5), 'filled', ...
-                'MarkerFaceColor', colors(Nt*(b-1)+k), 'HandleVisibility', 'off');
+                'MarkerFaceColor', colors(K*(b-1)+k), 'HandleVisibility', 'off');
             end
         end
         for b = 1:Nt
@@ -1291,7 +1291,7 @@ for ts = idx_start:(idx_end-1)
         for b = 1:Nt
             for k = 1:K
                 scatter(vel2kms*cPoints{k,b}(:,4), vel2kms*cPoints{k,b}(:,6), 'filled', ...
-                'MarkerFaceColor', colors(Nt*(b-1)+k), 'HandleVisibility', 'off');
+                'MarkerFaceColor', colors(K*(b-1)+k), 'HandleVisibility', 'off');
             end
         end
         for b = 1:Nt
@@ -1310,7 +1310,7 @@ for ts = idx_start:(idx_end-1)
         for b = 1:Nt
             for k = 1:K
                 scatter(vel2kms*cPoints{k,b}(:,5), vel2kms*cPoints{k,b}(:,6), 'filled', ...
-                'MarkerFaceColor', colors(Nt*(b-1)+k), 'HandleVisibility', 'off');
+                'MarkerFaceColor', colors(K*(b-1)+k), 'HandleVisibility', 'off');
             end
         end
         for b = 1:Nt
@@ -1346,7 +1346,7 @@ for ts = idx_start:(idx_end-1)
                 end
                 
                 scatter(180/pi*Zmcloud(:,1), 180/pi*Zmcloud(:,2), 'filled', ...
-                'MarkerFaceColor', colors(Nt*(j-1)+k), 'HandleVisibility', 'off');    
+                'MarkerFaceColor', colors(K*(j-1)+k), 'HandleVisibility', 'off');    
             end
             Ztruth = h(Xprop_truth{j})';
             plot(180/pi*Ztruth(1), 180/pi*Ztruth(2), 'x', ... 
@@ -1703,7 +1703,7 @@ for ts = idx_start:(idx_end-1)
         for j = 1:Nt
             for k = 1:K
                 scatter(dist2km*Xp_cloudp{j}(c_id(:,j) == k,1), dist2km*Xp_cloudp{j}(c_id(:,j) == k,2), 'filled', ...
-                    'HandleVisibility', 'off', 'MarkerFaceColor', colors(Nt*(j-1)+k));
+                    'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
                 hold on;
             end
         end
@@ -1721,7 +1721,7 @@ for ts = idx_start:(idx_end-1)
         for j = 1:Nt
             for k = 1:K
                 scatter(dist2km*Xp_cloudp{j}(c_id(:,j) == k,1), dist2km*Xp_cloudp{j}(c_id(:,j) == k,3), 'filled', ...
-                    'HandleVisibility', 'off', 'MarkerFaceColor', colors(Nt*(j-1)+k));
+                    'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
                 hold on;
             end
         end
@@ -1739,7 +1739,7 @@ for ts = idx_start:(idx_end-1)
         for j = 1:Nt
             for k = 1:K
                 scatter(dist2km*Xp_cloudp{j}(c_id(:,j) == k,2), dist2km*Xp_cloudp{j}(c_id(:,j) == k,3), 'filled', ...
-                    'HandleVisibility', 'off', 'MarkerFaceColor', colors(Nt*(j-1)+k));
+                    'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
                 hold on;
             end
         end
@@ -1757,7 +1757,7 @@ for ts = idx_start:(idx_end-1)
         for j = 1:Nt
             for k = 1:K
                 scatter(vel2kms*Xp_cloudp{j}(c_id(:,j) == k,4), vel2kms*Xp_cloudp{j}(c_id(:,j) == k,5), 'filled', ...
-                    'HandleVisibility', 'off', 'MarkerFaceColor', colors(Nt*(j-1)+k));
+                    'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
                 hold on;
             end
         end
@@ -1775,7 +1775,7 @@ for ts = idx_start:(idx_end-1)
         for j = 1:Nt
             for k = 1:K
                 scatter(vel2kms*Xp_cloudp{j}(c_id(:,j) == k,4), vel2kms*Xp_cloudp{j}(c_id(:,j) == k,6), 'filled', ...
-                    'HandleVisibility', 'off', 'MarkerFaceColor', colors(Nt*(j-1)+k));
+                    'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
                 hold on;
             end
         end
@@ -1793,7 +1793,7 @@ for ts = idx_start:(idx_end-1)
         for j = 1:Nt
             for k = 1:K
                 scatter(vel2kms*Xp_cloudp{j}(c_id(:,j) == k,5), vel2kms*Xp_cloudp{j}(c_id(:,j) == k,6), 'filled', ...
-                    'HandleVisibility', 'off', 'MarkerFaceColor', colors(Nt*(j-1)+k));
+                    'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
                 hold on;
             end
         end
@@ -1828,7 +1828,7 @@ for ts = idx_start:(idx_end-1)
                     Zmcloud(i,:) = h(pts(i,:))';
                 end  
                 scatter(180/pi*Zmcloud(:,1), 180/pi*Zmcloud(:,2), 'filled', ...
-                'MarkerFaceColor', colors(Nt*(j-1)+k), 'HandleVisibility', 'off');
+                'MarkerFaceColor', colors(K*(j-1)+k), 'HandleVisibility', 'off');
             end
             Ztruth = h(Xprop_truth{j})';
             plot(180/pi*Ztruth(1), 180/pi*Ztruth(2), 'x', ... 
@@ -1865,11 +1865,11 @@ for ts = idx_start:(idx_end-1)
 end
 
 for j = 1:Nt
-    Xp_cloudp = zeros(Lp, length(Xprop_truth{j}));
+    Xp_cloudn = zeros(Lp, length(Xprop_truth{j}));
     for i = 1:Lp
-        [Xp_cloudp(i,:), ~] = drawFrom(wp(:,j), mu_p(:,j), P_p(:,j)); 
+        [Xp_cloudn(i,:), ~] = drawFrom(wp(:,j), mu_p(:,j), P_p(:,j)); 
     end
-    ent1(j,end,:) = getDiagCov(Xp_cloudp);
+    ent1(j,end,:) = getDiagCov(Xp_cloudn);
 end
 ent2(end-1:end,:) = [];
 
@@ -1949,7 +1949,127 @@ title('Entropy')
 legend('Target 1', 'Target 2')
 savefig(gcf,'./Multi_Sims/Entropy.fig');
 
+%%
 % Plot the results
+figure(9)
+legend_string = {"Truth 1", "Truth 2"}; Xp_cloudp = cell(1,Nt);
+
+% for j = 1:Nt
+%     for i = 1:Lp
+%         [Xp_cloudp{j}(i,:), ~] = drawFrom(wp(:,j), mu_p(:,j), P_p(:,j)); 
+%     end
+% end
+    
+subplot(2,3,1)
+for j = 1:Nt
+    for k = 1:K
+        scatter(dist2km*Xp_cloudp{j}(c_id(:,j) == k,1), dist2km*Xp_cloudp{j}(c_id(:,j) == k,2), 'filled', ...
+            'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
+        hold on;
+    end
+end
+for j = 1:Nt
+    plot(dist2km*Xprop_truth{j}(1), dist2km*Xprop_truth{j}(2), 'x','MarkerSize', 15, 'LineWidth', 3)
+    hold on;
+end
+title('X-Y');
+xlabel('X (km.)');
+ylabel('Y (km.)');
+legend(legend_string);
+hold off;
+
+subplot(2,3,2)
+for j = 1:Nt
+    for k = 1:K
+        scatter(dist2km*Xp_cloudp{j}(c_id(:,j) == k,1), dist2km*Xp_cloudp{j}(c_id(:,j) == k,3), 'filled', ...
+            'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
+        hold on;
+    end
+end
+for j = 1:Nt
+    plot(dist2km*Xprop_truth{j}(1), dist2km*Xprop_truth{j}(3), 'x','MarkerSize', 15, 'LineWidth', 3)
+    hold on;
+end
+title('X-Z');
+xlabel('X (km.)');
+ylabel('Z (km.)');
+legend(legend_string);
+hold off;
+
+subplot(2,3,3)
+for j = 1:Nt
+    for k = 1:K
+        scatter(dist2km*Xp_cloudp{j}(c_id(:,j) == k,2), dist2km*Xp_cloudp{j}(c_id(:,j) == k,3), 'filled', ...
+            'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
+        hold on;
+    end
+end
+for j = 1:Nt
+    plot(dist2km*Xprop_truth{j}(2), dist2km*Xprop_truth{j}(3), 'x','MarkerSize', 15, 'LineWidth', 3)
+    hold on;
+end
+title('Y-Z');
+xlabel('Y (km.)');
+ylabel('Z (km.)');
+legend(legend_string);
+hold off;
+
+subplot(2,3,4)
+for j = 1:Nt
+    for k = 1:K
+        scatter(vel2kms*Xp_cloudp{j}(c_id(:,j) == k,4), vel2kms*Xp_cloudp{j}(c_id(:,j) == k,5), 'filled', ...
+            'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
+        hold on;
+    end
+end
+for j = 1:Nt
+    plot(vel2kms*Xprop_truth{j}(4), vel2kms*Xprop_truth{j}(5), 'x','MarkerSize', 15, 'LineWidth', 3)
+    hold on;
+end
+title('Xdot-Ydot');
+xlabel('Xdot (km/s)');
+ylabel('Ydot (km/s)');
+legend(legend_string);
+hold off;
+
+subplot(2,3,5)
+for j = 1:Nt
+    for k = 1:K
+        scatter(vel2kms*Xp_cloudp{j}(c_id(:,j) == k,4), vel2kms*Xp_cloudp{j}(c_id(:,j) == k,6), 'filled', ...
+            'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
+        hold on;
+    end
+end
+for j = 1:Nt
+    plot(vel2kms*Xprop_truth{j}(4), vel2kms*Xprop_truth{j}(6), 'x','MarkerSize', 15, 'LineWidth', 3)
+    hold on;
+end
+title('Xdot-Zdot');
+xlabel('Xdot (km/s)');
+ylabel('Zdot (km/s)');
+legend(legend_string);
+hold off;
+
+subplot(2,3,6)
+for j = 1:Nt
+    for k = 1:K
+        scatter(vel2kms*Xp_cloudp{j}(c_id(:,j) == k,5), vel2kms*Xp_cloudp{j}(c_id(:,j) == k,6), 'filled', ...
+            'HandleVisibility', 'off', 'MarkerFaceColor', colors(K*(j-1)+k));
+        hold on;
+    end
+end
+for j = 1:Nt
+    plot(vel2kms*Xprop_truth{j}(5), vel2kms*Xprop_truth{j}(6), 'x','MarkerSize', 15, 'LineWidth', 3)
+    hold on;
+end
+title('Ydot-Zdot');
+xlabel('Ydot (km/s)');
+ylabel('Zdot (km/s)');
+legend(legend_string);
+hold off;
+
+sgt = sprintf('Timestep: %3.4f Hours (Posterior)', tpr*time2hr);
+sgtitle(sgt);
 %{
 figure(9)
 subplot(2,1,1)

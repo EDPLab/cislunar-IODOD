@@ -19,12 +19,11 @@ time2hr = 4.342*24; % Hours per non-dimensionalized time
 vel2kms = dist2km/(time2hr*60*60); % Kms per non-dimensionalized velocity
 
 Nt = 2; % Number of targets
-Q0 = diag([5/dist2km, 0, 0, 0, 0.005/vel2kms, 0]);
+Q0 = diag([1/dist2km, 0, 0, 0, 0.005/vel2kms, 0].^2);
 X0 = mvnrnd(x0, Q0, Nt);
 
 % Define time span
-tstamp1 = 0; % For long term trajectories 
-% tstamp = 0.3570;
+tstamp1 = 0; tstamp = 50;
 end_t = 48/time2hr - tstamp1;
 tspan = 0:6.25e-3:end_t; % For our modified trajectory 
 
@@ -46,7 +45,7 @@ end
 
 % Longer-term scheduling
 tstamp = t(end); % Begin new trajectory where we left off
-end_t = (40*24)/time2hr;
+end_t = (31*24)/time2hr;
 tspan = tstamp:(8/time2hr):end_t; % Schedule to take measurements once every 8 hours
 X0_tmp = Dx_Dt(:,end,:); t(end) = []; Dx_Dt(:,end,:) = []; 
 
@@ -62,6 +61,7 @@ end
 
 t = [t; ts];
 Dx_Dt = [Dx_Dt, Dx_Dts];
+%}
 
 Rb = Dx_Dt(:,:,1:3); % Position evolutions from barycenter
 Vb = Dx_Dt(:,:,4:6); % Velocity evolutions from barycenter
