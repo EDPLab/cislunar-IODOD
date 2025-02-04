@@ -51,6 +51,8 @@ larger_diff = noised_obs(end,1) - noised_obs(end-1,1);
 for j = 2:length(noised_obs(:,1))
     if (noised_obs(j,1) - noised_obs(j-1,1) > larger_diff)
         cVal = noised_obs(j,1); break;
+    else
+        cVal = noised_obs(end,1);
     end
 end
 
@@ -71,14 +73,24 @@ hdR(:,2) = hdo(:,2) .* cos(hdo(:,4)) .* cos(hdo(:,3)); % Conversion to X
 hdR(:,3) = hdo(:,2) .* cos(hdo(:,4)) .* sin(hdo(:,3)); % Conversion to Y
 hdR(:,4) = hdo(:,2) .* sin(hdo(:,4)); % Conversion to Z
 
-pf = 0.50; % A factor between 0 to 1 describing the length of the day to interpolate [x, y]
+pf = 0.25; % A factor between 0 to 1 describing the length of the day to interpolate [x, y]
+nfit = 4;
+
 in_len = round(pf * length(hdR(:,1))); % Length of interpolation interval
+
+% Modify interpolation interval length such that you are pieceing through
+% enough points.
+if (in_len < nfit + 1)
+    in_len = nfit + 1;
+    pf = in_len/length(hdR(:,1)); % Modify pf such that it meets minimum condition
+end
+
 hdR_p = hdR(1:in_len,:); % Matrix for a partial half-day observation
 
 % Fit polynomials for X, Y, and Z (Cubic for X, Quadratic for X and Y)
-coeffs_X = polyfit(hdR_p(:,1), hdR_p(:,2), 4);
-coeffs_Y = polyfit(hdR_p(:,1), hdR_p(:,3), 4);
-coeffs_Z = polyfit(hdR_p(:,1), hdR_p(:,4), 4);
+coeffs_X = polyfit(hdR_p(:,1), hdR_p(:,2), nfit);
+coeffs_Y = polyfit(hdR_p(:,1), hdR_p(:,3), nfit);
+coeffs_Z = polyfit(hdR_p(:,1), hdR_p(:,4), nfit);
 
 % Predicted values for X, Y, and Z given the polynomial fits
 X_fit = polyval(coeffs_X, hdR_p(:,1));
@@ -216,13 +228,13 @@ parfor i = 1:length(X0cloud(:,1))
     [t,X] = ode45(@cr3bp_dyn, [0 interval], Xbt, opts); % Assumes termination event (i.e. target enters LEO)
     Xm_bt = X(end,:)';
     Xm_cloud(i,:) = convertToTopo(Xm_bt, t_int + interval);
-    % Xm_cloud(i,:) = procNoise(Xm_cloud(i,:)); % Adds process noise
+    Xm_cloud(i,:) = procNoise(Xm_cloud(i,:)); % Adds process noise
 end
 
 % Initialize variables
 Kn = 1; % Number of clusters (original)
 K = Kn; % Number of clusters (changeable)
-Kmax = 6; % Maximum number of clusters (Kmax = 1 for EnKF)
+Kmax = 1; % Maximum number of clusters (Kmax = 1 for EnKF)
 
 mu_c = cell(K, 1);
 P_c = cell(K, 1);
@@ -723,7 +735,10 @@ for ts = idx_start:(idx_end-1)
     if(idx_meas ~= 0)  
         % Split propagated cloud into position and velocity data before
         % normalization.
-        % K = Kn;
+        % parfor j = 1:length(Xm_cloud(:,1))
+        %     Xm_cloud(j,:) = procNoise(Xm_cloud(j,:)); % Adds process noise only when measurement is to be made
+        % end
+
         if (tpr >= cVal)
             K = Kmax;
         else
@@ -1733,6 +1748,7 @@ for ts = idx_start:(idx_end-1)
         ent2(tau+2) = getKnEntropy(Ke, Xp_cloudp); % Get entropy as if you still are using six clusters
     end
 
+    %{
     if(abs(tpr - cTimes(2)) < 1e-10)
         Lp = 1250;
     elseif(abs(tpr - cTimes(4)) < 1e-10)
@@ -1741,6 +1757,7 @@ for ts = idx_start:(idx_end-1)
         Lp = 2500;
         save("Xm_cloud.mat", "Xp_cloudp"); save("t_int.mat", "tpr"); save("noised_obs.mat", "noised_obs"); save("Xtruth.mat", "Xprop_truth");
     end
+    %}
 
 end
 
@@ -1988,7 +2005,7 @@ end
 
 % Adds process noise to the un-noised state vector
 function [Xm] = procNoise(X)
-    Q = 0.000^2*diag(abs(X)); % Process noise is 1% of each state vector component
+    Q = (0.01*diag(abs(X))).^2; % Process noise is 1% of each state vector component
     Xm = mvnrnd(X,Q);
 end
 
@@ -2267,7 +2284,7 @@ function Xm_cloud = propagate(Xcloud, t_int, interval)
 
         Xm_bt = X(end,:)';
         Xm_cloud(i,:) = convertToTopo(Xm_bt, t_int + interval);
-        % Xm_cloud(i,:) = procNoise(Xm_cloud(i,:)); % Adds process noise
+        Xm_cloud(i,:) = procNoise(Xm_cloud(i,:)); % Adds process noise
     end    
 end
 

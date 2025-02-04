@@ -19,7 +19,9 @@ time2hr = 4.342*24; % Hours per non-dimensionalized time
 vel2kms = dist2km/(time2hr*60*60); % Kms per non-dimensionalized velocity
 
 Nt = 2; % Number of targets
-Q0 = diag([1/dist2km, 0, 0, 0, 0.005/vel2kms, 0].^2);
+Q0_dim = diag([500, 0, 0, 0, 0.02, 0].^2); % Variances in km and km/s
+Q0 = Q0_dim ./ ([dist2km, 1, 1, 1, vel2kms, 1]' * [dist2km, 1, 1, 1, vel2kms, 1]);
+
 X0 = mvnrnd(x0, Q0, Nt);
 
 % Define time span
