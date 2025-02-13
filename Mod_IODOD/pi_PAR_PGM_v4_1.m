@@ -231,9 +231,9 @@ parfor i = 1:length(X0cloud(:,1))
 end
 
 % Initialize variables
-Kn = 6; % Number of clusters (original)
+Kn = 1; % Number of clusters (original)
 K = Kn; % Number of clusters (changeable)
-Kmax = 6; % Maximum number of clusters (Kmax = 1 for EnKF)
+Kmax = 1; % Maximum number of clusters (Kmax = 1 for EnKF)
 
 mu_c = cell(K, 1);
 P_c = cell(K, 1);
@@ -816,7 +816,7 @@ for ts = idx_start:(idx_end-1)
             mu_mat = cell2mat(mu_c);
             P_mat = cat(3, P_c{:});
     
-            
+            %{
             f = figure('visible','off','Position', get(0,'ScreenSize'));
             f.WindowState = 'maximized';
     
@@ -838,11 +838,16 @@ for ts = idx_start:(idx_end-1)
                 end
                 Z = reshape(Z, size(X1));
                 Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
-                contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+                
+                contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals 
             end 
     
             hold on;
             for k = 1:K
+                if isempty(Z_cell{k}) || isempty(contours_cell{k})
+                    continue;
+                end
+
                 contour(dist2km*X1, dist2km*X2, dist2km*Z_cell{k}, dist2km*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
             end    
 
@@ -878,14 +883,18 @@ for ts = idx_start:(idx_end-1)
                     Z(i) = exp(-0.5 * (X_grid(i,:) - mu_marg(k,:)) * P_marg(:,:,k)^(-1) * (X_grid(i,:) - mu_marg(k,:))');
                 end
                 Z = reshape(Z, size(X1));
-                Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
-                contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+
+                contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals 
             end 
-            
+    
             hold on;
             for k = 1:K
+                if isempty(Z_cell{k}) || isempty(contours_cell{k})
+                    continue;
+                end
+
                 contour(dist2km*X1, dist2km*X2, dist2km*Z_cell{k}, dist2km*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
-            end  
+            end 
 
             % Overlay scatter points
             scatter(dist2km*Xm_cloud(:, plot_dims(1)), dist2km*Xm_cloud(:, plot_dims(2)), ...
@@ -919,13 +928,18 @@ for ts = idx_start:(idx_end-1)
                 end
                 Z = reshape(Z, size(X1));
                 Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
-                contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+                contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals 
             end 
-            
+    
             hold on;
             for k = 1:K
+                if isempty(Z_cell{k}) || isempty(contours_cell{k})
+                    continue;
+                end
+
                 contour(dist2km*X1, dist2km*X2, dist2km*Z_cell{k}, dist2km*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
-            end    
+            end 
+
             % Overlay scatter points
             scatter(dist2km*Xm_cloud(:, plot_dims(1)), dist2km*Xm_cloud(:, plot_dims(2)), ...
                 'filled', 'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
@@ -959,13 +973,19 @@ for ts = idx_start:(idx_end-1)
                 end
                 Z = reshape(Z, size(X1));
                 Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
-                contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+                
+                contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals 
             end 
-            
+    
             hold on;
             for k = 1:K
-                contour(vel2kms*X1, vel2kms*X2, vel2kms*Z_cell{k}, vel2kms*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
-            end    
+                if isempty(Z_cell{k}) || isempty(contours_cell{k})
+                    continue;
+                end
+
+                contour(dist2km*X1, dist2km*X2, dist2km*Z_cell{k}, dist2km*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+            end 
+
             % Overlay scatter points
             scatter(vel2kms*Xm_cloud(:, plot_dims(1)), vel2kms*Xm_cloud(:, plot_dims(2)), ...
                 'filled', 'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
@@ -996,13 +1016,18 @@ for ts = idx_start:(idx_end-1)
                 end
                 Z = reshape(Z, size(X1));
                 Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
-                contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+                
+                contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals 
             end 
-            
+    
             hold on;
             for k = 1:K
-                contour(vel2kms*X1, vel2kms*X2, vel2kms*Z_cell{k}, vel2kms*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
-            end    
+                if isempty(Z_cell{k}) || isempty(contours_cell{k})
+                    continue;
+                end
+
+                contour(dist2km*X1, dist2km*X2, dist2km*Z_cell{k}, dist2km*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+            end     
             scatter(vel2kms*Xm_cloud(:, plot_dims(1)), vel2kms*Xm_cloud(:, plot_dims(2)), ...
                 'filled', 'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
 
@@ -1032,13 +1057,18 @@ for ts = idx_start:(idx_end-1)
                 end
                 Z = reshape(Z, size(X1));
                 Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
-                contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+                
+                contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals 
             end 
-            
+    
             hold on;
             for k = 1:K
-                contour(vel2kms*X1, vel2kms*X2, vel2kms*Z_cell{k}, vel2kms*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
-            end    
+                if isempty(Z_cell{k}) || isempty(contours_cell{k})
+                    continue;
+                end
+
+                contour(dist2km*X1, dist2km*X2, dist2km*Z_cell{k}, dist2km*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+            end     
             % Overlay scatter points
             scatter(vel2kms*Xm_cloud(:, plot_dims(1)), vel2kms*Xm_cloud(:, plot_dims(2)), ...
                 'filled', 'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
@@ -1394,6 +1424,7 @@ for ts = idx_start:(idx_end-1)
         mu_mat = mu_pExp;
         P_mat = cat(3, P_p{:});    
         
+        %{
         f = figure('visible','off','Position', get(0,'ScreenSize'));
         f.WindowState = 'maximized';
     
@@ -1415,13 +1446,18 @@ for ts = idx_start:(idx_end-1)
             end
             Z = reshape(Z, size(X1));
             Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
-            contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+               
+            contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals 
         end 
-        
+    
         hold on;
         for k = 1:K
+            if isempty(Z_cell{k}) || isempty(contours_cell{k})
+                continue;
+            end
+
             contour(dist2km*X1, dist2km*X2, dist2km*Z_cell{k}, dist2km*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
-        end
+        end 
         % Overlay scatter points
         scatter(dist2km*Xp_cloudp(:, plot_dims(1)), dist2km*Xp_cloudp(:, plot_dims(2)), ...
                 'filled', 'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
@@ -1452,13 +1488,18 @@ for ts = idx_start:(idx_end-1)
             end
             Z = reshape(Z, size(X1));
             Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
-            contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+               
+            contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals 
         end 
-        
+    
         hold on;
         for k = 1:K
+            if isempty(Z_cell{k}) || isempty(contours_cell{k})
+                continue;
+            end
+
             contour(dist2km*X1, dist2km*X2, dist2km*Z_cell{k}, dist2km*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
-        end
+        end 
         % Overlay scatter points
         scatter(dist2km*Xp_cloudp(:, plot_dims(1)), dist2km*Xp_cloudp(:, plot_dims(2)), ...
                 'filled', 'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
@@ -1489,13 +1530,18 @@ for ts = idx_start:(idx_end-1)
             end
             Z = reshape(Z, size(X1));
             Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
-            contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+                
+            contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals 
         end 
-        
+    
         hold on;
         for k = 1:K
+            if isempty(Z_cell{k}) || isempty(contours_cell{k})
+                continue;
+            end
+
             contour(dist2km*X1, dist2km*X2, dist2km*Z_cell{k}, dist2km*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
-        end
+        end 
         % Overlay scatter points
         scatter(dist2km*Xp_cloudp(:, plot_dims(1)), dist2km*Xp_cloudp(:, plot_dims(2)), ...
                 'filled', 'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
@@ -1526,12 +1572,17 @@ for ts = idx_start:(idx_end-1)
             end
             Z = reshape(Z, size(X1));
             Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
-            contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+                
+            contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals 
         end 
-        
+    
         hold on;
         for k = 1:K
-            contour(vel2kms*X1, vel2kms*X2, vel2kms*Z_cell{k}, vel2kms*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+            if isempty(Z_cell{k}) || isempty(contours_cell{k})
+                continue;
+            end
+
+            contour(dist2km*X1, dist2km*X2, dist2km*Z_cell{k}, dist2km*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
         end 
         % Overlay scatter points
         scatter(vel2kms*Xp_cloudp(:, plot_dims(1)), vel2kms*Xp_cloudp(:, plot_dims(2)), ...
@@ -1563,13 +1614,18 @@ for ts = idx_start:(idx_end-1)
             end
             Z = reshape(Z, size(X1));
             Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
-            contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+                
+            contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals 
         end 
-        
+    
         hold on;
         for k = 1:K
-            contour(vel2kms*X1, vel2kms*X2, vel2kms*Z_cell{k}, vel2kms*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
-        end
+            if isempty(Z_cell{k}) || isempty(contours_cell{k})
+                continue;
+            end
+
+            contour(dist2km*X1, dist2km*X2, dist2km*Z_cell{k}, dist2km*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+        end 
         % Overlay scatter points
         scatter(vel2kms*Xp_cloudp(:, plot_dims(1)), vel2kms*Xp_cloudp(:, plot_dims(2)), ...
                 'filled', 'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
@@ -1600,12 +1656,17 @@ for ts = idx_start:(idx_end-1)
             end
             Z = reshape(Z, size(X1));
             Z = Z/(2*pi*sqrt(det(P_marg(:,:,k)))); Z_cell{k} = Z;
-            contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals
+                
+            contours_cell{k} = max(Z(:)) * exp(-0.5 * [1, 2.3, 3.44].^2);  % Corresponding to sigma intervals 
         end 
-        
+    
         hold on;
         for k = 1:K
-            contour(vel2kms*X1, vel2kms*X2, vel2kms*Z_cell{k}, vel2kms*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
+            if isempty(Z_cell{k}) || isempty(contours_cell{k})
+                continue;
+            end
+
+            contour(dist2km*X1, dist2km*X2, dist2km*Z_cell{k}, dist2km*contours_cell{k}, 'LineWidth', 2, 'LineColor', contourCols(k,:));
         end 
         % Overlay scatter points
         scatter(vel2kms*Xp_cloudp(:, plot_dims(1)), vel2kms*Xp_cloudp(:, plot_dims(2)), ...
@@ -1787,15 +1848,6 @@ for ts = idx_start:(idx_end-1)
         close(f);
     end
 
-    % if(1)
-    %{
-    if(idx_meas ~= 0)
-        K = Kn;
-    else
-        K = 1;
-    end
-    %}
-
     if (idx_meas ~= 0)
         wsum = 0;
         for k = 1:K
@@ -1811,12 +1863,11 @@ for ts = idx_start:(idx_end-1)
         ent2(tau+2) = getKnEntropy(Ke, Xp_cloudp); % Get entropy as if you still are using six clusters
     end
 
-    %{
     if(abs(tpr - cTimes(2)) < 1e-10)
-        Lp = 1250;
-    elseif(abs(tpr - cTimes(4)) < 1e-10)
         Lp = 1500;
-    elseif(abs(tpr - cVal) < 1e-10)
+    elseif(abs(tpr - cTimes(4)) < 1e-10)
+        Lp = 2000;
+    elseif(abs(tpr - cTimes(6)) < 1e-10)
         Lp = 2500;
         save("Xm_cloud.mat", "Xp_cloudp"); save("t_int.mat", "tpr"); save("noised_obs.mat", "noised_obs"); save("Xtruth.mat", "Xprop_truth");
     end

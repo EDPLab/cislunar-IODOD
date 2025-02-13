@@ -88,7 +88,7 @@ pf = 0.50; % A factor between 0 to 1 describing the length of the day to interpo
 Xot_fitted = cell(1,Nt); Xot_truth = cell(1,Nt); Xprop_truth = cell(1,Nt);
 
 L = 500;
-Lp = 1*L;
+Lp = 3*L;
 
 % delete(gcp('nocreate'))
 % parpool(4, 'IdleTimeout', Inf);
@@ -159,9 +159,11 @@ end
 % Number of shades per color
 numShades = 8;
 
-colors = ["#ff0000", "#ff0000", "#ff0000", "#ff0000", "#ff0000", "#ff0000", "#ff0000", "#ff0000", "#ff0000", ...
-    "#00ff00"]
-% colors = ["Red", "Blue", "Green", "Yellow", "Magenta", "Cyan", "Black", "#500000", "#bf5700", "#00274c", "#ba0c2f", "#a7b1b7"];
+% colors = ["#0000ff", "#0020ff", "#0040ff", "#0060ff", "#0080ff", "#00a0ff", "#00c0ff", "#00e0ff", ...
+%     "#ff0000", "#ff2000", "#ff4000", "#ff6000", "#ff8000", "#ffa000", "#ffc000", "#ffe000"];
+colors = ["Red", "Blue", "Green", "Yellow", "Magenta", "Cyan", "Black", ...
+    "#500000", "#bf5700", "#00274c", "#ba0c2f", "#a7b1b7", "#cfb991", ...
+    "#ebd99f", "#c4bfc0", "#ff5f05"];
 
 figure(1)
 set(gcf, 'units','normalized','outerposition',[0 0 1 1])
@@ -269,9 +271,9 @@ for j = 1:Nt
     interval = noised_obs{j}(2,1) - noised_obs{j}(1,1);
 
     cTimes = [];
-    while (i <= length(noised_obs(:,1)))
-        if (noised_obs(i,1) - noised_obs(i-1,1) > (interval+1e-11))
-            cTimes = [cTimes, noised_obs(i-1,1), noised_obs(i,1)];
+    while (i <= length(noised_obs{j}(:,1)))
+        if (noised_obs{j}(i,1) - noised_obs{j}(i-1,1) > (interval+1e-11))
+            cTimes = [cTimes, noised_obs{j}(i-1,1), noised_obs{j}(i,1)];
         end
         i = i + 1;
     end
@@ -280,9 +282,9 @@ end
 
 cVal = zeros(1,Nt);
 for i = 1:Nt
-    larger_diff = noised_obs{i}(end,1) - noised_obs{i}(end-1,1);
+    larger_diff = CTimes{i}(2) - CTimes{i}(1);
     for j = 2:length(noised_obs{i}(:,1))
-        if (noised_obs{i}(j,1) - noised_obs{i}(j-1,1) >= larger_diff)
+        if (noised_obs{i}(j,1) - noised_obs{i}(j-1,1) > (larger_diff+1e-11))
             cVal(i) = noised_obs{i}(j,1); break;
         end
     end
@@ -316,7 +318,7 @@ end
 
 % Initialize variables
 
-Kn = 3; % Number of clusters (original)
+Kn = 8; % Number of clusters (original)
 K = Kn; % Number of clusters (changeable)
 Kmax = 8; % Maximum number of clusters (Kmax = 1 for EnKF)
 
@@ -387,7 +389,7 @@ set(gcf, 'units','normalized','outerposition',[0 0 1 1])
 subplot(2,3,1)
 for k = 1:Nt
     scatter(dist2km*Xm_cloud{k}(:,1), dist2km*Xm_cloud{k}(:,2), 'filled', ...
-        'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
+        'HandleVisibility', 'off', 'MarkerFaceColor', colors(Kn*(k-1)+k));
     hold on;
 end
 for j = 1:Nt
@@ -403,7 +405,7 @@ hold off;
 subplot(2,3,2)
 for k = 1:Nt
     scatter(dist2km*Xm_cloud{k}(:,1), dist2km*Xm_cloud{k}(:,3), 'filled', ...
-        'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
+        'HandleVisibility', 'off', 'MarkerFaceColor', colors(Kn*(k-1)+k));
     hold on;
 end
 for j = 1:Nt
@@ -419,7 +421,7 @@ hold off;
 subplot(2,3,3)
 for k = 1:Nt
     scatter(dist2km*Xm_cloud{k}(:,2), dist2km*Xm_cloud{k}(:,3), 'filled', ...
-        'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
+        'HandleVisibility', 'off', 'MarkerFaceColor', colors(Kn*(k-1)+k));
     hold on;
 end
 for j = 1:Nt
@@ -435,7 +437,7 @@ hold off;
 subplot(2,3,4)
 for k = 1:Nt
     scatter(vel2kms*Xm_cloud{k}(:,4), vel2kms*Xm_cloud{k}(:,5), 'filled', ...
-        'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
+        'HandleVisibility', 'off', 'MarkerFaceColor', colors(Kn*(k-1)+k));
     hold on;
 end
 for j = 1:Nt
@@ -451,7 +453,7 @@ hold off;
 subplot(2,3,5)
 for k = 1:Nt
     scatter(vel2kms*Xm_cloud{k}(:,4), vel2kms*Xm_cloud{k}(:,6), 'filled', ...
-        'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
+        'HandleVisibility', 'off', 'MarkerFaceColor', colors(Kn*(k-1)+k));
     hold on;
 end
 for j = 1:Nt
@@ -467,7 +469,7 @@ hold off;
 subplot(2,3,6)
 for k = 1:Nt
     scatter(vel2kms*Xm_cloud{k}(:,5), vel2kms*Xm_cloud{k}(:,6), 'filled', ...
-        'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
+        'HandleVisibility', 'off', 'MarkerFaceColor', colors(Kn*(k-1)+k));
     hold on;
 end
 for j = 1:Nt
@@ -662,7 +664,8 @@ hold on;
 for k = 1:K
     clusterPoints = Xp_cloud(c_id == k, :);
     mu_pExp(k,:) = mu_p{k};
-    scatter3(dist2km*clusterPoints(:,1), dist2km*clusterPoints(:,2), dist2km*clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
+    scatter3(dist2km*clusterPoints(:,1), dist2km*clusterPoints(:,2), dist2km*clusterPoints(:,3), 'filled', 'MarkerFaceColor', 201
+k));
     hold on;
 end
 plot3(dist2km*mu_pExp(:,1), dist2km*mu_pExp(:,2), dist2km*mu_pExp(:,3), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
@@ -839,8 +842,8 @@ saveas(gcf,'./Multi_Sims/Timestep_0_2B.png', 'png')
 % interval = hdR(idx_meas,c_meas) - hdR(idx_meas-1,c_meas);
 
 % [idx_crit, ~] = find(abs(Full_ts{1}(:,1)) >= (5*24)/time2hr, 1, 'first'); % Find the index of the last time step before a certain number of days have passed since orbit propagation
-% t_end = Full_ts{1}(idx_crit, 1);
-t_end = Full_ts{1}(end,1); % First observation of new pass + one more time step
+t_end = max(cVal); % End simulation at first point at which we get an observation from both targets
+% t_end = Full_ts{1}(end,1); % First observation of new pass + one more time step
 
 tau = 0;
 [idx_end, ~] = find(abs(Full_ts{1}(:,1) - t_end) < 1e-10);
@@ -858,10 +861,11 @@ for i = 1:Nt
 end
 
 cPoints = cell(K, Nt); c_id = zeros(Lp,Nt);
-mu_c = cell(K, Nt); mu_p = mu_c;
+mu_c = cell(K, Nt); mu_p = mu_c; idx = cell(1,Nt);
 P_c = cell(K, Nt); P_p = P_c;
 wm = zeros(K, Nt); wp = wm;
 
+zt = zeros(length(zt), Nt);
 % for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for easier propagation
 for ts = idx_start:(idx_end-1) 
 
@@ -917,11 +921,11 @@ for ts = idx_start:(idx_end-1)
             [idx_meas, ~] = find(abs(noised_obs{j}(:,1) - tpr) < 1e-10); % Find row with time
             
             % Cluster using K-means clustering algorithm
-            [idx(:,b), ~] = kmeans(Xm_norm, K);
+            [idx{b}, ~] = kmeans(Xm_norm, K);
     
             % Calculate covariances and weights for each cluster
             for k = 1:K
-                cluster_points = Xm_cloud{b}(idx(:,b) == k, :); 
+                cluster_points = Xm_cloud{b}(idx{b} == k, :); 
                 cPoints{k,b} = cluster_points; 
                 mu_c{k,b} = mean(cluster_points, 1); % Cell of GMM means 
                 if (length(cluster_points(:,1)) == 1)
@@ -936,16 +940,16 @@ for ts = idx_start:(idx_end-1)
             R_vv = [theta_f*pi/648000, 0; 0, theta_f*pi/648000].^2;
             % Hxk = linHx(mu_c{i}); % Linearize about prior mean component
             h = @(x) [atan2(x(2),x(1)); pi/2 - acos(x(3)/sqrt(x(1)^2 + x(2)^2 + x(3)^2))]; % Nonlinear measurement model
-            zt = getNoisyMeas(Xprop_truth{b}, R_vv, h);
+            zt(:,b) = getNoisyMeas(Xprop_truth{b}, R_vv, h);
     
             for i = 1:K
                 % [mu_p{i}, P_p{i}] = ukfUpdate(zt, R_vv, mu_c{i}, P_c{i}, h);
-                [mu_p{i,b}, P_p{i,b}] = kalmanUpdate(zt, cPoints{i,b}, R_vv, mu_c{i,b}, P_c{i,b}, h);
+                [mu_p{i,b}, P_p{i,b}] = kalmanUpdate(zt(:,b), cPoints{i,b}, R_vv, mu_c{i,b}, P_c{i,b}, h);
                 P_p{i,b} = (P_p{i,b} + P_p{i,b}')/2;
             end
     
             % Weight update
-            wp(:,b) = weightUpdate(wm(:,b), Xm_cloud{b}, idx(:,b), zt, R_vv, h);
+            wp(:,b) = weightUpdate(wm(:,b), Xm_cloud{b}, idx{b}, zt(:,b), R_vv, h);
 
             % Resampling
             % K = Kn;
@@ -1205,6 +1209,7 @@ for ts = idx_start:(idx_end-1)
         close(f);
         %}
         
+        % Count number of measurements for this epoch
         mnum = 0;
         for b = 1:Nt
             [idx_meas, ~] = find(abs(noised_obs{b}(:,1) - tpr) < 1e-10); % Find row with time
@@ -1221,7 +1226,7 @@ for ts = idx_start:(idx_end-1)
     
             for b = 1:Nt
                 for k = 1:K
-                    cPoints{k,b} = Xm_cloud{b}(idx(:,b) == k, :);
+                    cPoints{k,b} = Xm_cloud{b}(idx{b} == k, :);
                 end
             end
     
@@ -1359,7 +1364,7 @@ for ts = idx_start:(idx_end-1)
     
             for j = 1:Nt
                 for k = 1:K
-                    Zmcloud = zeros(length(cPoints{k,j}(:,1)), length(zt));
+                    Zmcloud = zeros(length(cPoints{k,j}(:,1)), length(zt(:,j)));
                     for i = 1:length(Zmcloud(:,1))
                         Zmcloud(i,:) = h(cPoints{k,j}(i,:))';
                     end
@@ -1843,7 +1848,7 @@ for ts = idx_start:(idx_end-1)
         for j = 1:Nt
             for k = 1:K
                 pts = Xp_cloudp{j}(c_id(:,j) == k, :);
-                Zmcloud = zeros(length(pts(:,1)), length(zt));
+                Zmcloud = zeros(length(pts(:,1)), length(zt(:,j)));
                 for i = 1:length(Zmcloud(:,1))
                     Zmcloud(i,:) = h(pts(i,:))';
                 end  
@@ -1874,14 +1879,16 @@ for ts = idx_start:(idx_end-1)
     end
     %}
 
-    % if(abs(tpr - cTimes(2)) < 1e-10)
-    %     Lp = 1250;
-    % elseif(abs(tpr - cTimes(4)) < 1e-10)
+    %{
+    if(abs(tpr - max(cellfun(@(u) u(2), CTimes))) < 1e-10)
+        Lp = 1500;
+    % elseif(abs(tpr - CTimes{1}(4)) < 1e-10)
     %     Lp = 1500;
     % elseif(abs(tpr - cVal) < 1e-10)
     %     Lp = 2500;
     %     save("Xm_cloud.mat", "Xp_cloudp"); save("t_int.mat", "tpr"); save("noised_obs.mat", "noised_obs"); save("Xtruth.mat", "Xprop_truth");
-    % end
+    end
+    %}
 end
 
 for j = 1:Nt
@@ -1892,6 +1899,36 @@ for j = 1:Nt
     ent1(j,end,:) = getDiagCov(Xp_cloudn);
 end
 ent2(end-1:end,:) = [];
+
+%%
+% What we have: Observations zt; A priori and posterior means and
+% covariances mu_c, P_c, mu_p, P_p; A priori and posterior GMM weights
+% wm, wp
+% What we need: Likelihood function p_i(z) = p_v(z-h(x), Pvv)
+% Goal: Design a table of measurement likelihoods for each observation
+
+ml_table = cell(1,Nt); % One cell for one observation
+likes = zeros(K,Nt); zMeans = cell(K,Nt); zCovs = cell(K,Nt);
+
+% zw = zt; zw(:,2) = getNoisyMeas(Xprop_truth{2}, R_vv, h);
+
+for j = 1:Nt
+    for i = 1:Nt
+        for k = 1:K
+            cPts = cPoints{k,i};
+            zPts = zeros(length(cPts(:,1)), length(zt(:,j)));
+            for l = 1:length(cPts(:,1))
+                zPts(l,:) = h(cPts(l,:));
+            end
+            zPredMean = mean(zPts,1);
+            zPredCov = cov(zPts) + R_vv;
+            likes(k,i) = mvnpdf(zt(:,j)' - zPredMean, zeros(size(zt(:,j)')), zPredCov);
+            zMeans{k,i} = zPredMean; zCovs{k,i} = zPredCov;
+        end
+    end
+    ml_table{j} = likes;
+end
+
 
 figure(7)
 
@@ -2089,6 +2126,33 @@ hold off;
 
 sgt = sprintf('Timestep: %3.4f Hours (Posterior)', tpr*time2hr);
 sgtitle(sgt);
+
+figure(10)
+
+legend_string = "Truth";
+hold on;
+
+for j = 1:Nt
+    for k = 1:K
+        pts = Xm_cloud{j}(c_id(:,j) == k, :);
+        Zmcloud = zeros(length(pts(:,1)), length(zt(:,j)));
+        for i = 1:length(Zmcloud(:,1))
+            Zmcloud(i,:) = h(pts(i,:))';
+        end  
+        scatter(180/pi*Zmcloud(:,1), 180/pi*Zmcloud(:,2), 'filled', ...
+        'MarkerFaceColor', colors(K*(j-1)+k), 'HandleVisibility', 'off');
+    end
+    Ztruth = h(Xprop_truth{j})';
+    plot(180/pi*Ztruth(1), 180/pi*Ztruth(2), 'x', ... 
+        'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string);
+end
+
+title('AZ-EL')
+xlabel('Azimuth Angle (deg)')
+ylabel('Elevation Angle (deg)')
+
+sg = sprintf('./Multi_Sims/Timestep_%i_2C.png', tau);
+
 %{
 figure(9)
 subplot(2,1,1)
@@ -2235,10 +2299,6 @@ save("stdevs.mat", "ent1");
 toc
 
 %% Functions
-
-function hex = rgb2hex(rgb)
-    hex = sprintf('#%02x%02x%02x', round(rgb(1) * 255), round(rgb(2) * 255), round(rgb(3) * 255));
-end
 
 function Hx = linHx(mu)
     Hk_AZ = [-mu(2)/(mu(1)^2 + mu(2)^2), mu(1)/(mu(1)^2 + mu(2)^2), 0, 0, 0, 0]; % Azimuth angle linearization
@@ -2583,7 +2643,8 @@ function [mu_p, P_p] = kalmanUpdate(zk, Xcloud, R, mu_m, P_m, h)
     Pzz = Pzz/N + R;
 
     K_k = Pxz'/Pzz;
-    mu_p = mu_m' + K_k*(zk - h(mu_m));
+    % mu_p = mu_m' + K_k*(zk - h(mu_m));
+    mu_p = mu_m' + K_k*(zk - mzk_m);
     P_p = P_m - K_k*Pzz*K_k';
     
     % mu_p = mu_m' + Pxz'*Pzz^(-1)*(zk - h(mu_m));

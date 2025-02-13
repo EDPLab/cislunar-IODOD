@@ -12,6 +12,7 @@ mu = 1.2150582e-2;
 % x0 = [-0.144158380406153	-0.000697738382717277	0	0.0100115754530300	-3.45931892135987	0]; % Planar Mirror Orbit "Loop-Dee-Loop" Sub-Trajectory
 % x0 = [1.15568 0 0 0 0.04 0]';
 x0 = [1.16429257222878	-0.0144369085836121	0	-0.0389308426824481	0.0153488211249537	0]; % L2 Lagrange Point Approach
+% x0 = [1.0221 0 -0.1821 0 -0.1033 0]; % 9:2 Resonant Orbit NRHO (from Thangavelu MS Thesis 2019)
 
 % Coordinate system conversions
 dist2km = 384400; % Kilometers per non-dimensionalized distance
@@ -19,8 +20,9 @@ time2hr = 4.342*24; % Hours per non-dimensionalized time
 vel2kms = dist2km/(time2hr*60*60); % Kms per non-dimensionalized velocity
 
 Nt = 2; % Number of targets
-Q0_dim = diag([500, 0, 0, 0, 0.02, 0].^2); % Variances in km and km/s
-Q0 = Q0_dim ./ ([dist2km, 1, 1, 1, vel2kms, 1]' * [dist2km, 1, 1, 1, vel2kms, 1]);
+Q0 = diag([500/dist2km, 0, 0, 0, 0, 0].^2);
+% Q0_dim = diag([500, 0, 0, 0, 0, 0].^2); % Variances in km and km/s
+% Q0 = Q0_dim ./ ([dist2km, 1, 1, 1, vel2kms, 1]' * [dist2km, 1, 1, 1, vel2kms, 1]);
 
 X0 = mvnrnd(x0, Q0, Nt);
 
@@ -47,7 +49,7 @@ end
 
 % Longer-term scheduling
 tstamp = t(end); % Begin new trajectory where we left off
-end_t = (31*24)/time2hr;
+end_t = (40*24/time2hr) - tstamp1;
 tspan = tstamp:(8/time2hr):end_t; % Schedule to take measurements once every 8 hours
 X0_tmp = Dx_Dt(:,end,:); t(end) = []; Dx_Dt(:,end,:) = []; 
 

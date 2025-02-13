@@ -134,7 +134,7 @@ t_truth = partial_rts(end,1);
 Xprop_truth = [full_ts(idx_prop+1,2:4), full_vts(idx_prop+1,2:4)]';
 
 L = 500;
-Lp = 1*L;
+Lp = 2*L;
 X0cloud = zeros(L,6);
 
 % delete(gcp('nocreate'))
@@ -232,9 +232,9 @@ parfor i = 1:length(X0cloud(:,1))
 end
 
 % Initialize variables
-Kn = 1; % Number of clusters (original)
+Kn = 6; % Number of clusters (original)
 K = Kn; % Number of clusters (changeable)
-Kmax = 1; % Maximum number of clusters (Kmax = 1 for EnKF)
+Kmax = 6; % Maximum number of clusters (Kmax = 1 for EnKF)
 
 mu_c = cell(K, 1);
 P_c = cell(K, 1);
@@ -742,7 +742,7 @@ for ts = idx_start:(idx_end-1)
         if (tpr >= cVal)
             K = Kmax;
         else
-            K = 1;
+            K = Kn;
         end
 
         rc = Xm_cloud(:,1:3);
@@ -817,7 +817,7 @@ for ts = idx_start:(idx_end-1)
             mu_mat = cell2mat(mu_c);
             P_mat = cat(3, P_c{:});
     
-            
+            %{
             f = figure('visible','off','Position', get(0,'ScreenSize'));
             f.WindowState = 'maximized';
     
@@ -1361,7 +1361,7 @@ for ts = idx_start:(idx_end-1)
         mu_mat = mu_pExp;
         P_mat = cat(3, P_p{:});
     
-        
+        %{
         f = figure('visible','off','Position', get(0,'ScreenSize'));
         f.WindowState = 'maximized';
     
@@ -1741,23 +1741,21 @@ for ts = idx_start:(idx_end-1)
         ent2(tau+2) = log(wsum);
     else
         if (tpr >= cVal)
-            Ke = 6; % Clusters used for calculating entropy
+            Ke = Kmax; % Clusters used for calculating entropy
         else
-            Ke = 1; % Clusters used for calculating entropy
+            Ke = Kn; % Clusters used for calculating entropy
         end
         ent2(tau+2) = getKnEntropy(Ke, Xp_cloudp); % Get entropy as if you still are using six clusters
     end
 
-    %{
     if(abs(tpr - cTimes(2)) < 1e-10)
         Lp = 1250;
     elseif(abs(tpr - cTimes(4)) < 1e-10)
         Lp = 1500;
-    elseif(abs(tpr - cVal) < 1e-10)
+    elseif(abs(tpr - cTimes(6)) < 1e-10)
         Lp = 2500;
         save("Xm_cloud.mat", "Xp_cloudp"); save("t_int.mat", "tpr"); save("noised_obs.mat", "noised_obs"); save("Xtruth.mat", "Xprop_truth");
     end
-    %}
 
 end
 
@@ -1981,15 +1979,21 @@ end
 
 function w = weightUpdate(wc, cluster_points, idx, zk, R, h)
     wGains = zeros(length(wc));
-    for i = 1:length(wc)
+    K = length(wc);
+
+    for i = 1:K
         cPts = cluster_points(idx == i, :);
-        zPoints = zeros(length(cPts(:,1)), length(zk));
-        for j = 1:length(cPts(:,1))
-            zPoints(j,:) = h(cPts(j,:));
+
+        if isempty(cPts)
+            continue;
         end
-        zPredMean = mean(zPoints,1);
-        zPredCov = cov(zPoints) + R;
-        wGains(i) = mvnpdf(zk', zPredMean, zPredCov);
+        zPoints = arrayfun(@(row) h(cPts(row, :)), 1:size(cPts, 1), 'UniformOutput', false);
+        zPoints = cell2mat(zPoints); % Convert cell array to matrix
+
+        zPredMean = mean(zPoints,2);
+        zPredCov = cov(zPoints') + R;
+
+        wGains(i) = mvnpdf(zk, zPredMean, zPredCov);
     end
 
     w = wc .* wGains / sum(wc .* wGains);
@@ -2207,7 +2211,7 @@ function [X_ot] = convertToTopo(X_bt, t_stamp)
     X_ot = [rot_topo'; vot_topo];
 end
 
-function [x_p, pos] = drawFrom(w, mu, P)
+function [x_p, pos] = drawFrom2(w, mu, P)
     cmf_w = zeros(length(w),1); % Cumulative mass function of the weights
     cmf_w(1,1) = w(1);
     for j = 2:length(w)
@@ -2242,7 +2246,7 @@ function [x_p, pos] = drawFrom(w, mu, P)
     x_p = mvnrnd(mu_t, R_t)';
 end
 
-function [x_p, pos] = drawFrom3(w, mu, P)
+function [x_p, pos] = drawFrom(w, mu, P)
     % Use histcounts for efficient sampling
     pos = histcounts(rand, [0; cumsum(w(:))]);
     pos = find(pos, 1);
@@ -2261,11 +2265,7 @@ function zk = getNoisyMeas(Xtruth, R, h)
 end
 
 function Xm_cloud = propagate(Xcloud, t_int, interval)
-    % Xcloud = zeros(L,length(mu{1}));
-    % for i = 1:L
-    %     [Xcloud(i,:), ~] = drawFrom(w, mu, P);
-    % end
-    % 
+
     Xm_cloud = zeros(size(Xcloud));
     for i = 1:length(Xcloud(:,1))
         % First, convert from X_{ot} in the topocentric frame to X_{bt} in the
@@ -2276,9 +2276,6 @@ function Xm_cloud = propagate(Xcloud, t_int, interval)
         % step and convert back to the topographic frame.
         % Call ode45()
 
-        % opts = odeset('Events', @termSat);
-        % [~,X] = ode45(@cr3bp_dyn, [0 interval], Xbt, opts); % Assumes termination event (i.e. target enters LEO)
-        
         opts = odeset('Events', @termSat, 'RelTol', 1e-6, 'AbsTol', 1e-8); 
         [~, X] = ode15s(@cr3bp_dyn, [0 interval], Xbt, opts); 
 
@@ -2314,164 +2311,6 @@ function [mu_p, P_p] = kalmanUpdate(zk, Xcloud, R, mu_m, P_m, h)
 
     K_k = Pxz'/Pzz;
     mu_p = mu_m' + K_k*(zk - h(mu_m));
-    P_p = P_m - K_k*Pzz*K_k';
-    
-    % mu_p = mu_m' + Pxz'*Pzz^(-1)*(zk - h(mu_m));
-    % P_p = P_m - Pxz'*Pzz^(-1)*Pxz;
-    
-    P_p = (P_p + P_p')/2;
-
-    [V, D] = eig(P_p);
-    D = max(D,0);
-    P_p = V*D*V';
-end
-
-% Kalman update for a single time step (with linearized measurement model)
-function [mu_p, P_p] = ekfUpdate(zk, H, R, mu_m, P_m, h)
-    Pxz = P_m*H';
-    Pzz = H*P_m*H' + R;
-    K_k = Pxz/Pzz;
-    % K_k = P_m*H'*(H*P_m*H' + R)^(-1); % Kalman gain
-
-    %{
-    ek = zk - h(mu_m);
-    if(ek(2) > pi)
-        ek(2) = ek(2) - 2*pi;
-    elseif(ek(2) < -pi)
-        ek(2) = ek(2) + 2*pi;
-    end
-    %}
-
-    mu_p = mu_m + K_k*(zk - h(mu_m));
-    % mu_p = mu_m + K_k*ek;
-    P_p = (eye(length(mu_m)) - K_k*H)*P_m;
-    % P_p = P_m - K_k*(H*P_m*H' + R)^(-1)*K_k';
-    % P_p = P_m - Pxz*K_k' - K_k*Pxz' + K_k*Pzz*K_k';
-    % P_p = (eye(length(mu_m)) - K_k*H)*P_m*(eye(length(mu_m)) - K_k*H)' + K_k*R*K_k'; % Joseph formula
-
-    % Ensure Kalman update is symmetric
-    P_p = (P_p + P_p')/2;
-end
-
-function [mu_c, P_c] = ukfProp(t_int, interval, mu_p, P_p)
-    % Generate 2L+1 sigma vectors
-    n = length(mu_p); % Length of state vector
-    alpha = 1e-3;
-    beta = 2;
-    kappa = 0;
-    lambda = alpha^2*(n + kappa) - n;
-
-    % Calculate square root factor
-    P_p = (P_p + P_p')/2;
-
-    [V, D] = eig(P_p);
-    D = max(D,0);
-    P_p = V*D*V';
-
-    S = chol(P_p, 'lower'); % Obtain SRF via Cholesky decomposition
-
-    sigs = zeros(2*n+1, n); % Matrix of sigma vectors
-
-    wm = zeros(1,2*n+1); % Vector of mean weights
-    wc = zeros(1,2*n+1); % Vector of covariance weights
-    
-    % Vectors and weights
-    sigs(1,:) = mu_p; 
-    wm(1) = lambda/(n + lambda);
-    wc(1) = lambda/(n + lambda) - (1 - alpha^2 + beta);
-
-    for i = 2:(n+1)
-        sigs(i,:) = (mu_m' + sqrt(n + lambda)*S(:,i-1))'; 
-        sigs(i+n,:) = (mu_m' - sqrt(n + lambda)*S(:,i-1))';
-
-        wm(i) = 0.5/(n + lambda); wm(i+n) = wm(i);
-        wc(i) = 0.5/(n + lambda); wc(i+n) = wc(i);
-    end
-    
-    prop_sigs = zeros(size(sigs));
-    % Propagation of sigma points
-    for i = 1:length(sigs(i,:))
-        prop_sigs(i,:) = propagate(sigs(i,:), t_int, interval);
-    end
-
-    % Get a priori mean
-    mu_c = zeros(n, 1);
-
-    for i = 1:(2*n+1)
-        mu_c = mu_c + wm(i)*prop_sigs(i,:);
-    end
-
-    P_c = zeros(size(P_p));
-    for i = 1:(2*n+1)
-        P_c = P_c + wc(i) * ((prop_sigs(i,:) - mu_c)*(prop_sigs(i,:) - mu_c)');
-    end
-    
-    P_c = (P_c + P_c')/2;
-
-    [V, D] = eig(P_c);
-    D = max(D,0);
-    P_c = V*D*V';
-end
-
-function [mu_p, P_p] = ukfUpdate(zk, R, mu_m, P_m, h)
-    % Generate 2L+1 sigma vectors
-    n = length(mu_m); % Length of state vector
-    alpha = 1e-3;
-    beta = 2;
-    kappa = 0;
-    lambda = alpha^2*(n + kappa) - n;
-
-    % Calculate square root factor
-    P_m = (P_m + P_m')/2;
-
-    [V, D] = eig(P_m);
-    D = max(D,0);
-    P_m = V*D*V';
-
-    S = chol(P_m, 'lower'); % Obtain SRF via Cholesky decomposition
-
-    sigs = zeros(2*n+1, n); % Matrix of sigma vectors
-    zetas = zeros(2*n+1, length(zk));
-
-    wm = zeros(1,2*n+1); % Vector of mean weights
-    wc = zeros(1,2*n+1); % Vector of covariance weights
-    
-    % Vectors and weights
-    sigs(1,:) = mu_m; 
-    zetas(1,:) = h(mu_m);
-    wm(1) = lambda/(n + lambda);
-    wc(1) = lambda/(n + lambda) - (1 - alpha^2 + beta);
-
-    for i = 2:(n+1)
-        sigs(i,:) = (mu_m' + sqrt(n + lambda)*S(:,i-1))'; 
-        sigs(i+n,:) = (mu_m' - sqrt(n + lambda)*S(:,i-1))';
-
-        zetas(i,:) = h(sigs(i,:)); zetas(i+n,:) = h(sigs(i+n,:));
-
-        wm(i) = 0.5/(n + lambda); wm(i+n) = wm(i);
-        wc(i) = 0.5/(n + lambda); wc(i+n) = wc(i);
-    end
-
-    Pxz = zeros(length(mu_m), length(zk));
-    Pzz = zeros(length(zk), length(zk));
-    mzk = zk*0.0;
-
-    for i = 1:(2*n+1)
-        mzk = mzk + wm(i)*zetas(i,:)';
-    end
-
-    for i = 1:(2*n+1)
-        Pzz = Pzz + wc(i)*(zetas(i,:)' - mzk)*(zetas(i,:)' - mzk)';
-        Pxz = Pxz + wc(i)*(sigs(i,:)' - mu_m')*(zetas(i,:)' - mzk)';
-    end
-    Pzz = Pzz + R;
-
-    % Compute optimal Kalman Gain
-    K_k = Pxz*Pzz^(-1);
-
-    % Update mean and covariances
-    mu_p = mu_m' + K_k*(zk - mzk);
-    % P_p = P_m - Pxz*K_k' - K_k*Pxz' + K_k*Pzz*K_k';
     P_p = P_m - K_k*Pzz*K_k';
     P_p = (P_p + P_p')/2;
 

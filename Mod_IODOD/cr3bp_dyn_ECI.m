@@ -24,7 +24,7 @@ x0 = [1.0221 0 -0.1821 0 -0.1033 0]; % 9:2 Resonant Orbit NRHO (from Thangavelu 
 
 % Define time span
 tstamp1 = 0; % For long term trajectories 
-% tstamp = 0.3570;
+tstamp = 50;
 end_t = 1.5112 - tstamp1;
 % end_t = 2 - tstamp1; tstamp = end_t + 1e-10;
 tspan = 0:6.25e-3:end_t; % For our modified trajectory 
@@ -286,6 +286,35 @@ for i = 1:length(t_valid(:,1))
     end
 end
 
+% Find the times at the beginning and end of each pass
+i = 2;
+interval = partial_ts_ECI(2,1) - partial_ts_ECI(1,1);
+cTimes = []; % Array of important time points
+
+while (i <= length(partial_ts_ECI(:,1)))
+    if (partial_ts_ECI(i,1) - partial_ts_ECI(i-1,1) > (interval+1e-11))
+        cTimes = [cTimes, partial_ts_ECI(i-1,1), partial_ts_ECI(i,1)];
+    end
+    i = i + 1;
+end
+
+% Extract only P continuous observations per pass
+P = 5;
+q = 2;
+
+endOf1 = find(abs(partial_ts_ECI(:,1) - cTimes(1)) < 1e-11);
+partial_ts_po = partial_ts_ECI(1:endOf1,:);
+
+while(q < length(cTimes))
+    pass_start = find(abs(partial_ts_ECI(:,1) - cTimes(q)) < 1e-11);
+    pass_end = find(abs(partial_ts_ECI(:,1) - cTimes(q+1)) < 1e-11);
+    obs_pass = partial_ts_ECI(pass_start:pass_end,:);
+
+    consObs = appendObs(obs_pass, P);
+    partial_ts_po = [partial_ts_po; consObs];
+    q = q + 2;
+end
+
 % Plot the spherical coordinates of the observer parametrically w.r.t. time
 figure(4)
 subplot(3,1,1)
@@ -310,7 +339,30 @@ ylabel('Elevation Angle (rad)')
 title('Observer Elevation Angle Measurements (Ideal)')
 saveas(gcf, 'observations_ECI.png')
 
-partial_ts = partial_ts_ECI;
+figure(5)
+subplot(3,1,1)
+plot(partial_ts_po(:,1), partial_ts_po(:,2), 'ro')
+xlabel('Time')
+ylabel('Range (non-dim)')
+% xlim([-tstamp1 t(end)])
+title('Observer Range Measurements (Ideal)')
+
+subplot(3,1,2)
+plot(partial_ts_po(:,1), partial_ts_po(:,3), 'go')
+xlabel('Time')
+ylabel('Azimuth Angle (rad)')
+% xlim([-tstamp1 t(end)])
+title('Observer Azimuth Angle Measurements (Ideal)')
+
+subplot(3,1,3)
+plot(partial_ts_po(:,1), partial_ts_po(:,4), 'bo')
+xlabel('Time')
+ylabel('Elevation Angle (rad)')
+% xlim([-tstamp1 t(end)])
+title('Observer Elevation Angle Measurements (Ideal)')
+saveas(gcf, 'observations_ECI.png')
+
+partial_ts = partial_ts_po;
 save('partial_ts.mat', 'partial_ts');
 
 full_ts = [t, rot_topo];
@@ -319,3 +371,21 @@ save('full_ts.mat', "full_ts");
 % Construct and save a similar data file for velocity data
 full_vts = [t, vot_topo];
 save('full_vts.mat', 'full_vts')
+
+%% Functions
+
+% Discards all but N consecutive observations within a pass
+% Inputs: N - number of consecutive observations we're able to schedule
+% zvec - vector of all observations within a single pass
+% Output: passVec - a vector of N consecutive observations within the pass
+% defined by zvec
+function passVec = appendObs(zvec, N)
+    M = length(zvec(:,1));
+    
+    if (M < N) % Verify that the number of observations in a pass is no more than N.
+        N = M;
+    end
+
+    startIndex = randi([1 M-N+1], 1);
+    passVec = zvec(startIndex:startIndex+N-1,:);
+end
