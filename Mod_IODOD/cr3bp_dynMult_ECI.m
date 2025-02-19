@@ -22,14 +22,15 @@ vel2kms = dist2km/(time2hr*60*60); % Kms per non-dimensionalized velocity
 Nt = 2; % Number of targets
 Q0 = diag([500/dist2km, 0, 0, 0, 0, 0].^2);
 % Q0_dim = diag([500, 0, 0, 0, 0, 0].^2); % Variances in km and km/s
-% Q0 = Q0_dim ./ ([dist2km, 1, 1, 1, vel2kms, 1]' * [dist2km, 1, 1, 1, vel2kms, 1]);
+% Q0 = Q0_dim ./ ([dist2km, 1, 1, 1, 1, 1]' * [dist2km, 1, 1, 1, 1, 1]);
 
 X0 = mvnrnd(x0, Q0, Nt);
+X0_0 = squeeze(X0);
 
 % Define time span
 tstamp1 = 0; tstamp = 50;
 end_t = 48/time2hr - tstamp1;
-tspan = 0:6.25e-3:end_t; % For our modified trajectory 
+tspan = 0:1e-2:end_t; % For our modified trajectory 
 
 % Call ode45()
 
@@ -49,7 +50,7 @@ end
 
 % Longer-term scheduling
 tstamp = t(end); % Begin new trajectory where we left off
-end_t = (40*24/time2hr) - tstamp1;
+end_t = (30*24/time2hr) - tstamp1;
 tspan = tstamp:(8/time2hr):end_t; % Schedule to take measurements once every 8 hours
 X0_tmp = Dx_Dt(:,end,:); t(end) = []; Dx_Dt(:,end,:) = []; 
 
@@ -290,7 +291,7 @@ for k = 1:Nt
     j = 0;
     for i = 1:length(t)
         if (norm(cross(rot_topo(i,:), rom_topo(i,:)))/norm(rot_topo(i,:)) > Rm ...
-                && (t(i) <= tstamp || t(i) > (28*24)/time2hr))
+                && (t(i) <= tstamp || t(i) > (20*24)/time2hr))
             j = j + 1;
             T_valid{k}(j) = t(i);
             Rot_valid{k}(j,:) = rot_topo(i,:);

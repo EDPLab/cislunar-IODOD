@@ -281,7 +281,7 @@ for j = 1:Nt
 end
 
 cVal = zeros(1,Nt);
-for i = 1:Nt
+parfor i = 1:Nt
     larger_diff = CTimes{i}(2) - CTimes{i}(1);
     for j = 2:length(noised_obs{i}(:,1))
         if (noised_obs{i}(j,1) - noised_obs{i}(j-1,1) > (larger_diff+1e-11))
@@ -291,14 +291,14 @@ for i = 1:Nt
 end
 
 t_int = zeros(1,Nt); tspan = cell(1,Nt);
-for j = 1:Nt
+parfor j = 1:Nt
     t_int(j) = hdR_p{j}(end,1); % Time at which we are obtaining a state cloud
     interval = noised_obs{j}(2,1) - noised_obs{j}(1,1);
     tspan{j} = 0:interval:interval; % Integrate over just a single time step
 end
 Xm_cloud = X0cloud;
 
-for j = 1:Nt
+parfor j = 1:Nt
     for i = 1:length(X0cloud{j}(:,1))
         % First, convert from X_{ot} in the topocentric frame to X_{bt} in the
         % synodic frame.
@@ -372,7 +372,7 @@ for j = 1:Nt
 end
     
 Xprop_truth = cell(1,Nt);
-for j = 1:Nt
+parfor j = 1:Nt
     interval = noised_obs{j}(2,1) - noised_obs{j}(1,1);
     [idx_prop, ~] = find(abs(Full_ts{j}(:,1) - (t_int(j) + interval)) < 1e-10);
     Xprop_truth{j} = [Full_ts{j}(idx_prop,2:4), Full_vts{j}(idx_prop,2:4)];
@@ -924,7 +924,7 @@ for ts = idx_start:(idx_end-1)
             [idx{b}, ~] = kmeans(Xm_norm, K);
     
             % Calculate covariances and weights for each cluster
-            for k = 1:K
+            parfor k = 1:K
                 cluster_points = Xm_cloud{b}(idx{b} == k, :); 
                 cPoints{k,b} = cluster_points; 
                 mu_c{k,b} = mean(cluster_points, 1); % Cell of GMM means 
@@ -942,7 +942,7 @@ for ts = idx_start:(idx_end-1)
             h = @(x) [atan2(x(2),x(1)); pi/2 - acos(x(3)/sqrt(x(1)^2 + x(2)^2 + x(3)^2))]; % Nonlinear measurement model
             zt(:,b) = getNoisyMeas(Xprop_truth{b}, R_vv, h);
     
-            for i = 1:K
+            parfor i = 1:K
                 % [mu_p{i}, P_p{i}] = ukfUpdate(zt, R_vv, mu_c{i}, P_c{i}, h);
                 [mu_p{i,b}, P_p{i,b}] = kalmanUpdate(zt(:,b), cPoints{i,b}, R_vv, mu_c{i,b}, P_c{i,b}, h);
                 P_p{i,b} = (P_p{i,b} + P_p{i,b}')/2;
@@ -991,8 +991,8 @@ for ts = idx_start:(idx_end-1)
     legend_string = {"Truth 1", "Truth 2"};
 
     isCrit = any(cellfun (@(v) any(abs(v - tpr) < 1e-11), CTimes));
-    if (isCrit)
-    % if(1) % Use for all time steps
+    % if (isCrit)
+    if(1) % Use for all time steps
         %{
         % legend_string{K+1} = "Centroids";
         legend_string{K+1} = "Truth";
@@ -1222,6 +1222,125 @@ for ts = idx_start:(idx_end-1)
 
         if (mnum > 0)
             legend_string = {"Truth 1", "Truth 2"};
+
+            for b = 1:Nt
+                f = figure('visible','off','Position', get(0,'ScreenSize'));
+                f.WindowState = 'maximized';
+
+                for k = 1:K
+                    cPoints{k,b} = Xm_cloud{b}(idx{b} == k, :);
+                end
+                
+                subplot(2,3,1)
+                hold on; 
+                for k = 1:K
+                    scatter(dist2km*cPoints{k,b}(:,1), dist2km*cPoints{k,b}(:,2), 'filled', ...
+                    'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+                    hold on;
+                end
+
+                plot(dist2km*Xprop_truth{b}(1), dist2km*Xprop_truth{b}(2), 'kx', ... 
+                    'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string{b});
+                hold on;
+                
+                title('X-Y');
+                xlabel('X (km.)');
+                ylabel('Y (km.)');
+                legend(legend_string);
+                hold off;
+                
+                subplot(2,3,2)
+                hold on; 
+                for k = 1:K
+                    scatter(dist2km*cPoints{k,b}(:,1), dist2km*cPoints{k,b}(:,3), 'filled', ...
+                    'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+                    hold on;
+                end
+                plot(dist2km*Xprop_truth{b}(1), dist2km*Xprop_truth{b}(3), 'kx', ... 
+                    'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string{b});
+                hold on;
+
+                title('X-Z');
+                xlabel('X (km.)');
+                ylabel('Z (km.)');
+                legend(legend_string);
+                hold off;
+                
+                subplot(2,3,3)
+                hold on;
+
+                for k = 1:K
+                    scatter(dist2km*cPoints{k,b}(:,2), dist2km*cPoints{k,b}(:,3), 'filled', ...
+                    'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+                    hold on;
+                end
+
+                plot(dist2km*Xprop_truth{b}(2), dist2km*Xprop_truth{b}(3), 'kx', ... 
+                    'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string{b});
+                hold on;
+
+                title('Y-Z');
+                xlabel('Y (km.)');
+                ylabel('Z (km.)');
+                legend(legend_string);
+                hold off;
+                
+                subplot(2,3,4)
+                hold on;
+                for k = 1:K
+                    scatter(vel2kms*cPoints{k,b}(:,4), vel2kms*cPoints{k,b}(:,5), 'filled', ...
+                    'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+                end
+                plot(vel2kms*Xprop_truth{b}(4), vel2kms*Xprop_truth{b}(5), 'kx', ... 
+                    'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string{b});
+                hold on;
+
+                title('Xdot-Ydot');
+                xlabel('Xdot (km/s)');
+                ylabel('Ydot (km/s)');
+                legend(legend_string);
+                hold off;
+                
+                subplot(2,3,5)
+                hold on; 
+                for k = 1:K
+                    scatter(vel2kms*cPoints{k,b}(:,4), vel2kms*cPoints{k,b}(:,6), 'filled', ...
+                    'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+                end
+                plot(vel2kms*Xprop_truth{b}(4), vel2kms*Xprop_truth{b}(6), 'kx', ... 
+                    'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string{b});
+                hold on;
+
+                title('Xdot-Zdot');
+                xlabel('Xdot (km/s)');
+                ylabel('Zdot (km/s)');
+                legend(legend_string);
+                hold off;
+                
+                subplot(2,3,6)
+                hold on; 
+                for k = 1:K
+                    scatter(vel2kms*cPoints{k,b}(:,5), vel2kms*cPoints{k,b}(:,6), 'filled', ...
+                    'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+                end
+                plot(vel2kms*Xprop_truth{b}(5), vel2kms*Xprop_truth{b}(6), 'kx', ... 
+                        'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string{b});
+                hold on;
+
+                title('Ydot-Zdot');
+                xlabel('Ydot (km/s)');
+                ylabel('Zdot (km/s)');
+                legend(legend_string);
+                hold off;
+        
+                sgt = sprintf('Timestep: %3.4f Hours (Prior) - Target %d', tpr*time2hr, b);
+                sgtitle(sgt);
+        
+                sg = sprintf('./Multi_Sims/Timestep_%i_1B_T%i.png', tau, b);
+                % sg = sprintf('./Simulations/Different Orbit Simulations/Timestep_%i_1B.png', tau);
+                saveas(f, sg, 'png');
+                close(f);
+            end
     
             f = figure('visible','off','Position', get(0,'ScreenSize'));
             f.WindowState = 'maximized';
@@ -1357,7 +1476,38 @@ for ts = idx_start:(idx_end-1)
             % sg = sprintf('./Simulations/Different Orbit Simulations/Timestep_%i_1B.png', tau);
             saveas(f, sg, 'png');
             close(f);
-    
+
+            for j = 1:Nt
+                f = figure('visible','off','Position', get(0,'ScreenSize'));
+                f.WindowState = 'maximized';
+        
+                legend_string = {"Truth 1", "Truth 2"};
+                hold on;
+
+                for k = 1:K
+                    Zmcloud = zeros(length(cPoints{k,j}(:,1)), length(zt(:,j)));
+                    for i = 1:length(Zmcloud(:,1))
+                        Zmcloud(i,:) = h(cPoints{k,j}(i,:))';
+                    end
+                    
+                    scatter(180/pi*Zmcloud(:,1), 180/pi*Zmcloud(:,2), 'filled', ...
+                    'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');    
+                end
+                Ztruth = h(Xprop_truth{j})';
+                plot(180/pi*Ztruth(1), 180/pi*Ztruth(2), 'kx', ... 
+                    'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string{j});  
+
+                sgt = sprintf('Timestep: %3.4f Hours (Prior AZ-EL) - Target %i', tpr*time2hr, j);
+                sgtitle(sgt);
+                xlabel('Azimuth Angle (deg)')
+                ylabel('Elevation Angle (deg)')
+        
+                sg = sprintf('./Multi_Sims/Timestep_%i_1C_T%i.png', tau, j);
+                % sg = sprintf('./Simulations/Different Orbit Simulations/Timestep_%i_1B.png', tau);
+                saveas(f, sg, 'png');
+                close(f);
+            end
+
             f = figure('visible','off','Position', get(0,'ScreenSize'));
             f.WindowState = 'maximized';
     
@@ -1491,8 +1641,8 @@ for ts = idx_start:(idx_end-1)
     end
     %}
   
-    if (isCrit)
-    % if(1)
+    % if (isCrit)
+    if(1)
         % [idx_trth, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
         % Xprop_truth = [full_ts(idx_trth,2:4), full_vts(idx_trth,2:4)];
 
@@ -1719,6 +1869,112 @@ for ts = idx_start:(idx_end-1)
         saveas(f, sg, 'png');
         close(f);
         %}
+
+        for j = 1:Nt
+            f = figure('visible','off','Position', get(0,'ScreenSize'));
+            f.WindowState = 'maximized';
+    
+            % fprintf("Plotting Particles at Timestep: %d\n", tau);
+        
+            legend_string = {"Truth 1", "Truth 2"};
+        
+            subplot(2,3,1)
+            for k = 1:K
+                scatter(dist2km*Xp_cloudp{j}(c_id(:,j) == k,1), dist2km*Xp_cloudp{j}(c_id(:,j) == k,2), 'filled', ...
+                    'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
+                hold on;
+            end
+            plot(dist2km*Xprop_truth{j}(1), dist2km*Xprop_truth{j}(2), 'kx','MarkerSize', 15, 'LineWidth', 3)
+            hold on;
+
+            title('X-Y');
+            xlabel('X (km.)');
+            ylabel('Y (km.)');
+            legend(legend_string);
+            hold off;
+            
+            subplot(2,3,2)
+            for k = 1:K
+                scatter(dist2km*Xp_cloudp{j}(c_id(:,j) == k,1), dist2km*Xp_cloudp{j}(c_id(:,j) == k,3), 'filled', ...
+                    'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
+                hold on;
+            end
+            plot(dist2km*Xprop_truth{j}(1), dist2km*Xprop_truth{j}(3), 'kx','MarkerSize', 15, 'LineWidth', 3)
+            hold on;
+
+            title('X-Z');
+            xlabel('X (km.)');
+            ylabel('Z (km.)');
+            legend(legend_string);
+            hold off;
+            
+            subplot(2,3,3)
+            for k = 1:K
+                scatter(dist2km*Xp_cloudp{j}(c_id(:,j) == k,2), dist2km*Xp_cloudp{j}(c_id(:,j) == k,3), 'filled', ...
+                    'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
+                hold on;
+            end
+            plot(dist2km*Xprop_truth{j}(2), dist2km*Xprop_truth{j}(3), 'kx','MarkerSize', 15, 'LineWidth', 3)
+            hold on;
+
+            title('Y-Z');
+            xlabel('Y (km.)');
+            ylabel('Z (km.)');
+            legend(legend_string);
+            hold off;
+            
+            subplot(2,3,4)
+            for k = 1:K
+                scatter(vel2kms*Xp_cloudp{j}(c_id(:,j) == k,4), vel2kms*Xp_cloudp{j}(c_id(:,j) == k,5), 'filled', ...
+                    'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
+                hold on;
+            end
+            plot(vel2kms*Xprop_truth{j}(4), vel2kms*Xprop_truth{j}(5), 'kx','MarkerSize', 15, 'LineWidth', 3)
+            hold on;
+
+            title('Xdot-Ydot');
+            xlabel('Xdot (km/s)');
+            ylabel('Ydot (km/s)');
+            legend(legend_string);
+            hold off;
+            
+            subplot(2,3,5)
+            for k = 1:K
+                scatter(vel2kms*Xp_cloudp{j}(c_id(:,j) == k,4), vel2kms*Xp_cloudp{j}(c_id(:,j) == k,6), 'filled', ...
+                    'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
+                hold on;
+            end
+            plot(vel2kms*Xprop_truth{j}(4), vel2kms*Xprop_truth{j}(6), 'kx','MarkerSize', 15, 'LineWidth', 3)
+            hold on;
+
+            title('Xdot-Zdot');
+            xlabel('Xdot (km/s)');
+            ylabel('Zdot (km/s)');
+            legend(legend_string);
+            hold off;
+            
+            subplot(2,3,6)
+            for k = 1:K
+                scatter(vel2kms*Xp_cloudp{j}(c_id(:,j) == k,5), vel2kms*Xp_cloudp{j}(c_id(:,j) == k,6), 'filled', ...
+                    'HandleVisibility', 'off', 'MarkerFaceColor', colors(k));
+                hold on;
+            end
+            plot(vel2kms*Xprop_truth{j}(5), vel2kms*Xprop_truth{j}(6), 'kx','MarkerSize', 15, 'LineWidth', 3)
+            hold on;
+
+            title('Ydot-Zdot');
+            xlabel('Ydot (km/s)');
+            ylabel('Zdot (km/s)');
+            legend(legend_string);
+            hold off;
+    
+            sgt = sprintf('Timestep: %3.4f Hours (Posterior) - Target %i', tpr*time2hr, j);
+            sgtitle(sgt);
+        
+            sg = sprintf('./Multi_Sims/Timestep_%i_2B_T%i.png', tau, j);
+            saveas(f, sg, 'png');
+            close(f);
+        end
     
         f = figure('visible','off','Position', get(0,'ScreenSize'));
         f.WindowState = 'maximized';
@@ -1841,6 +2097,36 @@ for ts = idx_start:(idx_end-1)
         sg = sprintf('./Multi_Sims/Timestep_%i_2B.png', tau);
         saveas(f, sg, 'png');
         close(f);
+
+        for j = 1:Nt
+            f = figure('visible','off','Position', get(0,'ScreenSize'));
+            f.WindowState = 'maximized';
+    
+            legend_string = "Truth";
+            hold on;
+            for k = 1:K
+                pts = Xp_cloudp{j}(c_id(:,j) == k, :);
+                Zmcloud = zeros(length(pts(:,1)), length(zt(:,j)));
+                for i = 1:length(Zmcloud(:,1))
+                    Zmcloud(i,:) = h(pts(i,:))';
+                end  
+                scatter(180/pi*Zmcloud(:,1), 180/pi*Zmcloud(:,2), 'filled', ...
+                'MarkerFaceColor', colors(k), 'HandleVisibility', 'off');
+            end
+            Ztruth = h(Xprop_truth{j})';
+            plot(180/pi*Ztruth(1), 180/pi*Ztruth(2), 'kx', ... 
+                'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string);
+
+            sgt = sprintf('Timestep: %3.4f Hours (Posterior AZ-EL) - Target %i', tpr*time2hr, j);
+            sgtitle(sgt);
+
+            xlabel('Azimuth Angle (deg)')
+            ylabel('Elevation Angle (deg)')
+    
+            sg = sprintf('./Multi_Sims/Timestep_%i_2C_T%i.png', tau, j);
+            saveas(f, sg, 'png');
+            close(f);
+        end
         
         f = figure('visible','off','Position', get(0,'ScreenSize'));
         f.WindowState = 'maximized';
@@ -1859,11 +2145,13 @@ for ts = idx_start:(idx_end-1)
                 'MarkerFaceColor', colors(K*(j-1)+k), 'HandleVisibility', 'off');
             end
             Ztruth = h(Xprop_truth{j})';
-            plot(180/pi*Ztruth(1), 180/pi*Ztruth(2), 'x', ... 
+            plot(180/pi*Ztruth(1), 180/pi*Ztruth(2), 'kx', ... 
                 'MarkerSize', 20, 'LineWidth', 3, 'DisplayName', legend_string);
         end
 
-        title('AZ-EL')
+        sgt = sprintf('Timestep: %3.4f Hours (Posterior AZ-EL)', tpr*time2hr);
+        sgtitle(sgt);
+
         xlabel('Azimuth Angle (deg)')
         ylabel('Elevation Angle (deg)')
 

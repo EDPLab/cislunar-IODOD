@@ -16,16 +16,16 @@ mu = 1.2150582e-2;
 
 % x0 = [-0.144158380406153	-0.000697738382717277	0	0.0100115754530300	-3.45931892135987	0]; % Planar Mirror Orbit "Loop-Dee-Loop" Sub-Trajectory
 % x0 = [1.15568 0 0 0 0.04 0]';
-% x0 = [1.16429257222878	-0.0144369085836121	0	-0.0389308426824481	0.0153488211249537	0]; % L2 Lagrange Point Approach
+x0 = [1.16429257222878	-0.0144369085836121	0	-0.0389308426824481	0.0153488211249537	0]; % L2 Lagrange Point Approach
 % x0 = [0.83691531 -0.038752 0 0.070662 0.051291 0]'; % Orbit #237 per Leiva and Briozzo 2006
 
 % x0 = [(379729.316 - 247.122)/dist2km, 0, 4493.209/dist2km, 0, 1.444467/vel2kms, 0]; % NRHO Patch Point from Williams et. al. 2017
-x0 = [1.0221 0 -0.1821 0 -0.1033 0]; % 9:2 Resonant Orbit NRHO (from Thangavelu MS Thesis 2019)
+% x0 = [1.0221 0 -0.1821 0 -0.1033 0]; % 9:2 Resonant Orbit NRHO (from Thangavelu MS Thesis 2019)
 
 % Define time span
 tstamp1 = 0; % For long term trajectories 
 tstamp = 50;
-end_t = 1.5112 - tstamp1;
+end_t = 36/time2hr - tstamp1;
 % end_t = 2 - tstamp1; tstamp = end_t + 1e-10;
 tspan = 0:6.25e-3:end_t; % For our modified trajectory 
 
@@ -45,12 +45,11 @@ end
 
 % tstamp = 40*24/time2hr;
 
-%{
 % Longer-term scheduling
 
 tstamp = t(end); % Begin new trajectory where we left off
-end_t = (35*24)/time2hr;
-tspan = tstamp:(8/time2hr):end_t; % Schedule to take measurements once every 8 hours
+end_t = 1.5112;
+tspan = tstamp:(2.5/time2hr):end_t; % Schedule to take measurements once every 8 hours
 x0_tmp = dx_dt(end,:); t(end) = []; dx_dt(end,:) = []; 
 
 dx_dts = zeros(length(tspan), length(x0)); dx_dts(1,:) = x0_tmp; % Start at end of pass
@@ -253,7 +252,7 @@ Rm = 1740/384400; % Nondimensionalized radius of the moon
 
 for i = 1:length(t)
     if (norm(cross(rot_topo(i,:), rom_topo(i,:)))/norm(rot_topo(i,:)) > Rm ...
-            && (t(i) <= tstamp || t(i) > (28*24)/time2hr))
+            && (t(i) <= tstamp || t(i) > (5*24)/time2hr))
         j = j + 1;
         t_valid(j,1) = t(i);
         rot_valid(j,:) = rot_topo(i,:);
@@ -299,6 +298,7 @@ while (i <= length(partial_ts_ECI(:,1)))
 end
 
 % Extract only P continuous observations per pass
+%{
 P = 5;
 q = 2;
 
@@ -314,30 +314,6 @@ while(q < length(cTimes))
     partial_ts_po = [partial_ts_po; consObs];
     q = q + 2;
 end
-
-% Plot the spherical coordinates of the observer parametrically w.r.t. time
-figure(4)
-subplot(3,1,1)
-plot(partial_ts_ECI(:,1), partial_ts_ECI(:,2), 'ro')
-xlabel('Time')
-ylabel('Range (non-dim)')
-% xlim([-tstamp1 t(end)])
-title('Observer Range Measurements (Ideal)')
-
-subplot(3,1,2)
-plot(partial_ts_ECI(:,1), partial_ts_ECI(:,3), 'go')
-xlabel('Time')
-ylabel('Azimuth Angle (rad)')
-% xlim([-tstamp1 t(end)])
-title('Observer Azimuth Angle Measurements (Ideal)')
-
-subplot(3,1,3)
-plot(partial_ts_ECI(:,1), partial_ts_ECI(:,4), 'bo')
-xlabel('Time')
-ylabel('Elevation Angle (rad)')
-% xlim([-tstamp1 t(end)])
-title('Observer Elevation Angle Measurements (Ideal)')
-saveas(gcf, 'observations_ECI.png')
 
 figure(5)
 subplot(3,1,1)
@@ -363,6 +339,34 @@ title('Observer Elevation Angle Measurements (Ideal)')
 saveas(gcf, 'observations_ECI.png')
 
 partial_ts = partial_ts_po;
+save('partial_ts.mat', 'partial_ts');
+%}
+
+% Plot the spherical coordinates of the observer parametrically w.r.t. time
+figure(4)
+subplot(3,1,1)
+plot(partial_ts_ECI(:,1), partial_ts_ECI(:,2), 'ro')
+xlabel('Time')
+ylabel('Range (non-dim)')
+% xlim([-tstamp1 t(end)])
+title('Observer Range Measurements (Ideal)')
+
+subplot(3,1,2)
+plot(partial_ts_ECI(:,1), partial_ts_ECI(:,3), 'go')
+xlabel('Time')
+ylabel('Azimuth Angle (rad)')
+% xlim([-tstamp1 t(end)])
+title('Observer Azimuth Angle Measurements (Ideal)')
+
+subplot(3,1,3)
+plot(partial_ts_ECI(:,1), partial_ts_ECI(:,4), 'bo')
+xlabel('Time')
+ylabel('Elevation Angle (rad)')
+% xlim([-tstamp1 t(end)])
+title('Observer Elevation Angle Measurements (Ideal)')
+saveas(gcf, 'observations_ECI.png')
+
+partial_ts = partial_ts_ECI;
 save('partial_ts.mat', 'partial_ts');
 
 full_ts = [t, rot_topo];

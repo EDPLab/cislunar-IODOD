@@ -2429,7 +2429,7 @@ function [mu_p, P_p] = kalmanUpdate(zk, Xcloud, R, mu_m, P_m, h)
     Pzz = Pzz/N + R;
 
     K_k = Pxz'/Pzz;
-    mu_p = mu_m' + K_k*(zk - h(mu_m));
+    mu_p = mu_m' + K_k*(zk - mzk_m);
     P_p = P_m - K_k*Pzz*K_k';
     
     % mu_p = mu_m' + Pxz'*Pzz^(-1)*(zk - h(mu_m));

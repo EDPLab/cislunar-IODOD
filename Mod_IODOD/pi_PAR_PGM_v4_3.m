@@ -510,8 +510,8 @@ if (idx_meas ~= 0) % i.e. there exists a measurement
     zt = getNoisyMeas(Xprop_truth, R_vv, h);
 
     for i = 1:K 
-        % [mu_p{i}, P_p{i}] = ukfUpdate(zt, R_vv, mu_c{i}, P_c{i}, h);
-        [mu_p{i}, P_p{i}] = kalmanUpdate(zt, cPoints{i}, R_vv, mu_c{i}, P_c{i}, h);
+        [mu_p{i}, P_p{i}] = ukfUpdate(zt, R_vv, mu_c{i}, P_c{i}, h);
+        % [mu_p{i}, P_p{i}] = kalmanUpdate(zt, cPoints{i}, R_vv, mu_c{i}, P_c{i}, h);
     end
 
     % Weight update
@@ -723,7 +723,10 @@ for ts = idx_start:(idx_end-1)
     ent1(tau+2,:) = getDiagCov(Xp_cloudp);
 
     % Propagation Step
-    Xm_cloud = propagate(Xp_cloudp, to, interval);
+    % Xm_cloud = propagate(Xp_cloudp, to, interval);
+    % Xprop_truth = propagate(Xprop_truth, to, interval);
+
+    [mu_c{K}, P_c{K}] = ukfProp(to, interval, mu_p{K}, P_p{K});
     Xprop_truth = propagate(Xprop_truth, to, interval);
 
     % Verification Step
@@ -738,6 +741,7 @@ for ts = idx_start:(idx_end-1)
         %     Xm_cloud(j,:) = procNoise(Xm_cloud(j,:)); % Adds process noise only when measurement is to be made
         % end
 
+        %{
         if (tpr >= cVal)
             K = Kmax;
         else
@@ -798,6 +802,7 @@ for ts = idx_start:(idx_end-1)
         yto = zc(1)*sin(zc(2))*cos(zc(3)); 
         zto = zc(1)*sin(zc(3)); 
         rto = [xto, yto, zto];
+        %}
 
         legend_string = {};
         parfor k = 1:K
@@ -810,6 +815,8 @@ for ts = idx_start:(idx_end-1)
         legend_string{K+1} = "Truth";
 
         if(1) % Use for all time steps
+
+            %{
             % legend_string{K+1} = "Centroids";
             legend_string{K+1} = "Truth";
     
@@ -1338,8 +1345,8 @@ for ts = idx_start:(idx_end-1)
         zt = getNoisyMeas(Xprop_truth, R_vv, h);
 
         for i = 1:K
-            % [mu_p{i}, P_p{i}] = ukfUpdate(zt, R_vv, mu_c{i}, P_c{i}, h);
-            [mu_p{i}, P_p{i}] = kalmanUpdate(zt, cPoints{i}, R_vv, mu_c{i}, P_c{i}, h);
+            [mu_p{i}, P_p{i}] = ukfUpdate(zt, R_vv, mu_c{i}, P_c{i}, h);
+            % [mu_p{i}, P_p{i}] = kalmanUpdate(zt, cPoints{i}, R_vv, mu_c{i}, P_c{i}, h);
             P_p{i} = (P_p{i} + P_p{i}')/2;
         end
 
@@ -1374,6 +1381,7 @@ for ts = idx_start:(idx_end-1)
     end
 
     if(1)
+        %{
         % [idx_trth, ~] = find(abs(full_ts(:,1) - tpr) < 1e-10);
         % Xprop_truth = [full_ts(idx_trth,2:4), full_vts(idx_trth,2:4)];
 
@@ -2398,15 +2406,6 @@ function [mu_p, P_p] = ekfUpdate(zk, H, R, mu_m, P_m, h)
     K_k = Pxz/Pzz;
     % K_k = P_m*H'*(H*P_m*H' + R)^(-1); % Kalman gain
 
-    %{
-    ek = zk - h(mu_m);
-    if(ek(2) > pi)
-        ek(2) = ek(2) - 2*pi;
-    elseif(ek(2) < -pi)
-        ek(2) = ek(2) + 2*pi;
-    end
-    %}
-
     mu_p = mu_m + K_k*(zk - h(mu_m));
     % mu_p = mu_m + K_k*ek;
     P_p = (eye(length(mu_m)) - K_k*H)*P_m;
@@ -2419,127 +2418,107 @@ function [mu_p, P_p] = ekfUpdate(zk, H, R, mu_m, P_m, h)
 end
 
 function [mu_c, P_c] = ukfProp(t_int, interval, mu_p, P_p)
-    % Generate 2L+1 sigma vectors
-    n = length(mu_p); % Length of state vector
-    alpha = 1e-3;
-    beta = 2;
-    kappa = 0;
-    lambda = alpha^2*(n + kappa) - n;
-
-    % Calculate square root factor
-    P_p = (P_p + P_p')/2;
-
+    % UKF Propagation Step
+    n = length(mu_p);
+    alpha = 1e-3; beta = 2; kappa = 0;
+    lambda = alpha^2 * (n + kappa) - n;
+    
+    % Ensure P_p is symmetric
+    P_p = (P_p + P_p') / 2;
     [V, D] = eig(P_p);
     D = max(D,0);
     P_p = V*D*V';
 
-    S = chol(P_p, 'lower'); % Obtain SRF via Cholesky decomposition
-
-    sigs = zeros(2*n+1, n); % Matrix of sigma vectors
-
-    wm = zeros(1,2*n+1); % Vector of mean weights
-    wc = zeros(1,2*n+1); % Vector of covariance weights
+    S = chol(P_p, 'lower');
     
-    % Vectors and weights
-    sigs(1,:) = mu_p; 
-    wm(1) = lambda/(n + lambda);
-    wc(1) = lambda/(n + lambda) - (1 - alpha^2 + beta);
-
-    for i = 2:(n+1)
-        sigs(i,:) = (mu_p' + sqrt(n + lambda)*S(:,i-1))'; 
-        sigs(i+n,:) = (mu_p' - sqrt(n + lambda)*S(:,i-1))';
-
-        wm(i) = 0.5/(n + lambda); wm(i+n) = wm(i);
-        wc(i) = 0.5/(n + lambda); wc(i+n) = wc(i);
+    % Generate sigma points
+    sigs = zeros(2*n+1, n);
+    wm = [lambda / (n + lambda), repmat(0.5 / (n + lambda), 1, 2*n)];
+    wc = wm;
+    wc(1) = wc(1) - (1 - alpha^2 + beta);
+    
+    sigs(1,:) = mu_p';
+    for i = 1:n
+        sigs(i+1,:) = (mu_p + sqrt(n + lambda) * S(:,i))';
+        sigs(i+1+n,:) = (mu_p - sqrt(n + lambda) * S(:,i))';
     end
     
+    % Propagate sigma points
     prop_sigs = zeros(size(sigs));
-    % Propagation of sigma points
-    for i = 1:length(sigs(i,:))
+    for i = 1:size(sigs, 1)
         prop_sigs(i,:) = propagate(sigs(i,:), t_int, interval);
     end
-
-    % Get a priori mean
-    mu_c = zeros(n, 1);
-
-    for i = 1:(2*n+1)
-        mu_c = mu_c + wm(i)*prop_sigs(i,:);
-    end
-
-    P_c = zeros(size(P_p));
-    for i = 1:(2*n+1)
-        P_c = P_c + wc(i) * ((prop_sigs(i,:) - mu_c)*(prop_sigs(i,:) - mu_c)');
-    end
     
-    P_c = (P_c + P_c')/2;
+    % Compute predicted mean
+    mu_c = wm * prop_sigs;
+    
+    % Compute predicted covariance
+    P_c = zeros(n, n);
 
+    for i = 1:(2*n+1)
+        P_c = P_c + wc(i) * (prop_sigs(i,:)' - mu_c') * (prop_sigs(i,:)' - mu_c')';
+    end
+    P_c = (P_c + P_c') / 2;
     [V, D] = eig(P_c);
     D = max(D,0);
     P_c = V*D*V';
 end
 
 function [mu_p, P_p] = ukfUpdate(zk, R, mu_m, P_m, h)
-    % Generate 2L+1 sigma vectors
-    n = length(mu_m); % Length of state vector
-    alpha = 1e-3;
-    beta = 2;
-    kappa = 0;
-    lambda = alpha^2*(n + kappa) - n;
-
-    % Calculate square root factor
-    P_m = (P_m + P_m')/2;
-
+    % UKF Update Step
+    n = length(mu_m);
+    alpha = 1e-3; beta = 2; kappa = 0;
+    lambda = alpha^2 * (n + kappa) - n;
+    
+    % Ensure P_m is symmetric
+    P_m = (P_m + P_m') / 2;
     [V, D] = eig(P_m);
     D = max(D,0);
     P_m = V*D*V';
 
-    S = chol(P_m, 'lower'); % Obtain SRF via Cholesky decomposition
-
-    sigs = zeros(2*n+1, n); % Matrix of sigma vectors
-    zetas = zeros(2*n+1, length(zk));
-
-    wm = zeros(1,2*n+1); % Vector of mean weights
-    wc = zeros(1,2*n+1); % Vector of covariance weights
+    S = chol(P_m, 'lower');
     
-    % Vectors and weights
-    sigs(1,:) = mu_m; 
-    zetas(1,:) = h(mu_m);
-    wm(1) = lambda/(n + lambda);
-    wc(1) = lambda/(n + lambda) - (1 - alpha^2 + beta);
-
-    for i = 2:(n+1)
-        sigs(i,:) = (mu_m' + sqrt(n + lambda)*S(:,i-1))'; 
-        sigs(i+n,:) = (mu_m' - sqrt(n + lambda)*S(:,i-1))';
-
-        zetas(i,:) = h(sigs(i,:)); zetas(i+n,:) = h(sigs(i+n,:));
-
-        wm(i) = 0.5/(n + lambda); wm(i+n) = wm(i);
-        wc(i) = 0.5/(n + lambda); wc(i+n) = wc(i);
+    % Generate sigma points
+    sigs = zeros(2*n+1, n);
+    wm = [lambda / (n + lambda), repmat(0.5 / (n + lambda), 1, 2*n)];
+    wc = wm;
+    wc(1) = wc(1) - (1 - alpha^2 + beta);
+    
+    sigs(1,:) = mu_m';
+    for i = 1:n
+        sigs(i+1,:) = (mu_m' + sqrt(n + lambda) * S(:,i))';
+        sigs(i+1+n,:) = (mu_m' - sqrt(n + lambda) * S(:,i))';
     end
-
-    Pxz = zeros(length(mu_m), length(zk));
+    
+    % Transform sigma points through measurement function
+    zetas = zeros(2*n+1, length(zk));
+    for i = 1:(2*n+1)
+        zetas(i,:) = h(sigs(i,:));
+    end
+    
+    % Compute predicted measurement mean
+    mzk = wm * zetas;
+    
+    % Compute innovation covariance and cross-covariance
     Pzz = zeros(length(zk), length(zk));
-    mzk = zk*0.0;
+    Pxz = zeros(n, length(zk));
 
     for i = 1:(2*n+1)
-        mzk = mzk + wm(i)*zetas(i,:)';
-    end
-
-    for i = 1:(2*n+1)
-        Pzz = Pzz + wc(i)*(zetas(i,:)' - mzk)*(zetas(i,:)' - mzk)';
-        Pxz = Pxz + wc(i)*(sigs(i,:)' - mu_m')*(zetas(i,:)' - mzk)';
+        Pzz = Pzz + wc(i) * (zetas(i,:) - mzk)' * (zetas(i,:) - mzk);
+        Pxz = Pxz + wc(i) * (sigs(i,:) - mu_m)' * (zetas(i,:) - mzk);
     end
     Pzz = Pzz + R;
+    
+    % Compute Kalman Gain
+    K_k = Pxz / Pzz;
+    
+    % Update mean and covariance
 
-    % Compute optimal Kalman Gain
-    K_k = Pxz/Pzz;
-
-    % Update mean and covariances
-    mu_p = mu_m' + K_k*(zk - mzk);
-    % P_p = P_m - Pxz*K_k' - K_k*Pxz' + K_k*Pzz*K_k';
-    P_p = P_m - K_k*Pzz*K_k';
-    P_p = (P_p + P_p')/2;
-
+    mu_p = mu_m' + K_k * (zk - mzk');
+    P_p = P_m - K_k * Pzz * K_k';
+    
+    % Ensure symmetry and positive semi-definiteness
+    P_p = (P_p + P_p') / 2;
     [V, D] = eig(P_p);
     D = max(D,0);
     P_p = V*D*V';
