@@ -1,19 +1,45 @@
-figPGM = open("./Simulations/PGM 6-Cluster Example 1 (L2 Propagation with Contours)/Entropy.fig");
-% figPGM = gcf;
+figUKF = open("../MiscSims/Simulation 3 (Orbit 237; Pure UKF)/Entropy.fig");
+% figENKF = gcf;
 
-axObjs = figPGM.Children;
+XData = cell(3,1);
+YData = cell(3,1);
+
+axObjs = figUKF.Children;
 dataObjs = axObjs.Children;
-
-XData = cell(2,1);
-YData = cell(2,1);
 
 lineObj = axObjs(1).Children;
 
 % Extract X and Y data from the line object
-XData{1} = lineObj.XData;
-YData{1} = lineObj.YData;
+XData{3} = lineObj.XData;
+YData{3} = lineObj.YData;
 
-figENKF = open("./Simulations/EnKF Example 1 (L2 Propagation with Contours)/Entropy.fig");
+figPGM = open("../MiscSims/Simulation 2 (Orbit 237; Pure PGM)/Entropy.fig");
+hold on;
+plot(XData{3}, YData{3})
+title('Entropy Comparison (PGM vs. EnKF vs. UKF)')
+legend('PGM', 'EnKF', 'UKF')
+hold off;
+
+% figPGM = gcf;
+
+axObjs = figPGM.Children;
+dataObjs1 = axObjs.Children;
+% dataObjs2 = axObjs{2}.Children;
+
+for i = 1:length(axObjs)
+    lineObjs = findall(axObjs(i), 'Type', 'Line'); % Find actual line objects
+    if ~isempty(lineObjs)
+        XData{i} = lineObjs(1).XData;
+        YData{i} = lineObjs(1).YData;
+    end
+end
+
+% Extract X and Y data from the line object
+% XData{1} = XData{2};
+% YData{1} = YData{2};
+
+%%
+figENKF = open("../MiscSims/Simulation 1 (Orbit 237; Pure EnKF)/Entropy.fig");
 % figENKF = gcf;
 
 axObjs = figENKF.Children;
@@ -25,12 +51,24 @@ lineObj = axObjs(1).Children;
 XData{2} = lineObj.XData;
 YData{2} = lineObj.YData;
 
-figure(1)
-plot(XData{1}, YData{1}, XData{2}, YData{2})
+figUKF = open("../MiscSims/Simulation 3 (Orbit 237; Pure UKF)/Entropy.fig");
+% figENKF = gcf;
+
+axObjs = figENKF.Children;
+dataObjs = axObjs.Children;
+
+lineObj = axObjs(1).Children;
+
+% Extract X and Y data from the line object
+XData{3} = lineObj.XData;
+YData{3} = lineObj.YData;
+
+figure(4)
+plot(XData{1}, YData{1}, XData{2}, YData{2}, XData{3}, YData{3})
 xlabel('Filter Time Step #')
 ylabel('Filter Entropy')
-title('Entropy Comparison (PGM vs. EnKF)')
-legend('PGM', 'ENKF')
+title('Entropy Comparison (PGM vs. EnKF vs. UKF)')
+legend('PGM', 'EnKF', 'UKF')
 
 %{
 dist2km = 384400; % Kilometers per non-dimensionalized distance

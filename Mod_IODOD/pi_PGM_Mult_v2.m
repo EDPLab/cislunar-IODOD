@@ -38,38 +38,6 @@ for j = 1:Nt
     end
 end
 
-%{
-figure(1)
-subplot(3,1,1)
-for i = 1:Nt
-    plot(noised_obs{i}(:,1), noised_obs{i}(:,2), 'o')
-    hold on;
-end
-xlabel('Time')
-ylabel('Range (non-dim)')
-% xlim([-tstamp1 t(end)])
-title('Observer Range Measurements (Noisy)')
-
-subplot(3,1,2)
-for i = 1:Nt
-    plot(noised_obs{i}(:,1), noised_obs{i}(:,3), 'o')
-    hold on;
-end
-xlabel('Time')
-ylabel('Azimuth Angle (rad)')
-% xlim([-tstamp1 t(end)])
-title('Observer Azimuth Angle Measurements (Noisy)')
-
-subplot(3,1,3)
-for i = 1:Nt
-    plot(noised_obs{i}(:,1), noised_obs{i}(:,4), 'o')
-    hold on;
-end
-xlabel('Time')
-ylabel('Elevation Angle (rad)')
-title('Observer Elevation Angle Measurements (Noisy)')
-%}
-
 % Extract the first continuous observation track
 hdo = cell(1,Nt); % Matrix for a half day observation
 
@@ -281,12 +249,16 @@ for j = 1:Nt
 end
 
 cVal = zeros(1,Nt);
-parfor i = 1:Nt
+larger_diff = zeros(1,Nt);
+for i = 1:Nt
     larger_diff = CTimes{i}(2) - CTimes{i}(1);
     for j = 2:length(noised_obs{i}(:,1))
         if (noised_obs{i}(j,1) - noised_obs{i}(j-1,1) > (larger_diff+1e-11))
             cVal(i) = noised_obs{i}(j,1); break;
         end
+    end
+    if(cVal(i) == 0) % If, after all that, the break statement is avoided
+        cVal(i) = CTimes{i}(2);
     end
 end
 
@@ -864,8 +836,9 @@ cPoints = cell(K, Nt); c_id = zeros(Lp,Nt);
 mu_c = cell(K, Nt); mu_p = mu_c; idx = cell(1,Nt);
 P_c = cell(K, Nt); P_p = P_c;
 wm = zeros(K, Nt); wp = wm;
-
 zt = zeros(length(zt), Nt);
+
+%% Main Loop
 % for to = tpr:interval:(t_end-1e-11) % Looping over the times of observation for easier propagation
 for ts = idx_start:(idx_end-1) 
 
@@ -918,7 +891,7 @@ for ts = idx_start:(idx_end-1)
             Xm_norm = [norm_rc, norm_vc];
         
             % Verification Step
-            [idx_meas, ~] = find(abs(noised_obs{j}(:,1) - tpr) < 1e-10); % Find row with time
+            [idx_meas, ~] = find(abs(noised_obs{b}(:,1) - tpr) < 1e-10); % Find row with time
             
             % Cluster using K-means clustering algorithm
             [idx{b}, ~] = kmeans(Xm_norm, K);
@@ -941,6 +914,7 @@ for ts = idx_start:(idx_end-1)
             % Hxk = linHx(mu_c{i}); % Linearize about prior mean component
             h = @(x) [atan2(x(2),x(1)); pi/2 - acos(x(3)/sqrt(x(1)^2 + x(2)^2 + x(3)^2))]; % Nonlinear measurement model
             zt(:,b) = getNoisyMeas(Xprop_truth{b}, R_vv, h);
+            noised_obs{b}(idx_meas,end-1:end) = zt(:,b); % Replace noised_obs vector values at beginning with actual observation values as function of consistently propagated truth
     
             parfor i = 1:K
                 % [mu_p{i}, P_p{i}] = ukfUpdate(zt, R_vv, mu_c{i}, P_c{i}, h);
@@ -2217,7 +2191,7 @@ for j = 1:Nt
             likes(k,i) = mvnpdf(zt(:,j)' - zPredMean, zeros(size(zt(:,j)')), zPredCov);
             zMeans{k,i} = zPredMean; zCovs{k,i} = zPredCov;
         end
-        av_likes(i,j) = dot(wm(:,i),likes(:,i)); % Weighted likelihoods
+        av_likes(j,i) = dot(wm(:,i),likes(:,i)); % Weighted likelihoods
     end
     ml_table{j} = likes;
 end
@@ -2446,148 +2420,30 @@ title('AZ-EL')
 xlabel('Azimuth Angle (deg)')
 ylabel('Elevation Angle (deg)')
 
-sg = sprintf('./Multi_Sims/Timestep_%i_2C.png', tau);
+%%
+figure(11)
 
-%{
-figure(9)
-subplot(2,1,1)
+subplot(1,2,1)
 hold on;
-for k = 1:K
-    clusterPoints = Xp_cloudp(c_id == k, :);
-    mu_pExp(k,:) = mu_p{k};
-    scatter3(clusterPoints(:,1), clusterPoints(:,2), clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
-    hold on;
+for j = 1:Nt
+    plot(time2hr*noised_obs{j}(:,1), 180/pi*noised_obs{j}(:,end-1), 'Color', colors(j), 'Marker', 'o', 'LineStyle', 'none')
 end
-plot3(mu_pExp(:,1), mu_pExp(:,2), mu_pExp(:,3), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
-hold on;
-plot3(Xprop_truth(1), Xprop_truth(2), Xprop_truth(3), 'x','MarkerSize', 20, 'LineWidth', 3)
-title('Posterior Distribution (Position)');
-xlabel('X');
-ylabel('Y');
-zlabel('Z');
-legend(legend_string);
-grid on;
-view(3);
 hold off;
+xlabel('Time Since Beginning (hr.)')
+ylabel('Azimuth Angle (deg)')
+title('Azimuth Angle vs. Time')
 
-subplot(2,1,2)
+subplot(1,2,2)
 hold on;
-for k = 1:K
-    clusterPoints = Xp_cloudp(c_id == k, :);
-    scatter3(clusterPoints(:,4), clusterPoints(:,5), clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
-    hold on;
+for j = 1:Nt
+    plot(time2hr*noised_obs{j}(:,1), 180/pi*noised_obs{j}(:,end), 'Color', colors(j), 'Marker', 'o', 'LineStyle', 'none')
 end
-plot3(mu_pExp(:,4), mu_pExp(:,5), mu_pExp(:,6), 'k+', 'MarkerSize', 10, 'LineWidth', 3);
-hold on;
-plot3(Xprop_truth(4), Xprop_truth(5), Xprop_truth(6), 'x','MarkerSize', 20, 'LineWidth', 3)
-title('Posterior Distribution (Velocity)');
-xlabel('Vx');
-ylabel('Vy');
-zlabel('Vz');
-legend(legend_string);
-grid on;
-view(3);
 hold off;
+xlabel('Time Since Beginning (hr.)')
+ylabel('Elevation Angle (deg)')
+title('Elevation Angle vs. Time')
 
-% Plot planar projections
-figure(10)
-subplot(2,3,1)
-for k = 1:K
-    clusterPoints = Xp_cloudp(c_id == k, :);
-    scatter(clusterPoints(:,1), clusterPoints(:,2), 'filled', 'MarkerFaceColor', colors(k));
-    hold on;
-end
-plot(mu_pExp(:,1), mu_pExp(:,2), '+', 'MarkerSize', 10, 'LineWidth', 3);
-hold on;
-plot(Xprop_truth(1), Xprop_truth(2), 'kx','MarkerSize', 20, 'LineWidth', 3)
-title('X-Y');
-xlabel('X');
-ylabel('Y');
-legend(legend_string);
-hold off;
-
-subplot(2,3,2)
-for k = 1:K
-    clusterPoints = Xp_cloudp(c_id == k, :);
-    scatter(clusterPoints(:,1), clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
-    hold on;
-end
-plot(mu_pExp(:,1), mu_pExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
-hold on;
-plot(Xprop_truth(1), Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
-title('X-Z');
-xlabel('X');
-ylabel('Z');
-legend(legend_string);
-hold off;
-
-subplot(2,3,3)
-for k = 1:K
-    clusterPoints = Xp_cloudp(c_id == k, :);
-    scatter(clusterPoints(:,2), clusterPoints(:,3), 'filled', 'MarkerFaceColor', colors(k));
-    hold on;
-end
-plot(mu_pExp(:,2), mu_pExp(:,3), '+', 'MarkerSize', 10, 'LineWidth', 3);
-hold on;
-plot(Xprop_truth(2), Xprop_truth(3), 'kx','MarkerSize', 20, 'LineWidth', 3)
-title('Y-Z');
-xlabel('Y');
-ylabel('Z');
-legend(legend_string);
-hold off;
-
-subplot(2,3,4)
-for k = 1:K
-    clusterPoints = Xp_cloudp(c_id == k, :);
-    scatter(clusterPoints(:,4), clusterPoints(:,5), 'filled', 'MarkerFaceColor', colors(k));
-    hold on;
-end
-plot(mu_pExp(:,4), mu_pExp(:,5), '+', 'MarkerSize', 10, 'LineWidth', 3);
-hold on;
-plot(Xprop_truth(4), Xprop_truth(5), 'kx','MarkerSize', 20, 'LineWidth', 3)
-title('Xdot-Ydot');
-xlabel('Xdot');
-ylabel('Ydot');
-legend(legend_string);
-hold off;
-
-subplot(2,3,5)
-for k = 1:K
-    clusterPoints = Xp_cloudp(c_id == k, :);
-    scatter(clusterPoints(:,4), clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
-    hold on;
-end
-plot(mu_pExp(:,4), mu_pExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
-hold on;
-plot(Xprop_truth(4), Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
-title('Xdot-Zdot');
-xlabel('Xdot');
-ylabel('Zdot');
-legend(legend_string);
-hold off;
-
-subplot(2,3,6)
-for k = 1:K
-    clusterPoints = Xp_cloudp(c_id == k, :);
-    scatter(clusterPoints(:,5), clusterPoints(:,6), 'filled', 'MarkerFaceColor', colors(k));
-    hold on;
-end
-plot(mu_pExp(:,5), mu_pExp(:,6), '+', 'MarkerSize', 10, 'LineWidth', 3);
-hold on;
-plot(Xprop_truth(5), Xprop_truth(6), 'kx','MarkerSize', 20, 'LineWidth', 3)
-title('Ydot-Zdot');
-xlabel('Ydot');
-ylabel('Zdot');
-legend(legend_string);
-hold off;
-
-sg = sprintf('Timestamp: %1.5f', tpr);
-sgtitle(sg)
-
-% savefig(gcf, 'nextObservedTracklet_normK.fig');
-savefig(gcf, 'finalDistribution_normK.fig');
-%}
-
+savefig(gcf, './Multi_Sims/MeasurementStreaks.fig');
 save("stdevs.mat", "ent1");
 
 % Finish timer

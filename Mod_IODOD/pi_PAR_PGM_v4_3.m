@@ -726,8 +726,11 @@ for ts = idx_start:(idx_end-1)
     % Xm_cloud = propagate(Xp_cloudp, to, interval);
     % Xprop_truth = propagate(Xprop_truth, to, interval);
 
-    [mu_c{K}, P_c{K}] = ukfProp(to, interval, mu_p{K}, P_p{K});
-    Xprop_truth = propagate(Xprop_truth, to, interval);
+    [mu_c{K}, P_c{K}, Xprop_truth] = ukfProp(to, interval, mu_p{K}, P_p{K}, Xprop_truth);
+    parfor i = 1:Lp
+        [Xm_cloud(i,:), ~] = drawFrom(wm, mu_c, P_c); 
+    end
+    % Xprop_truth = propagate(Xprop_truth, to, interval);
 
     % Verification Step
     tpr = to + interval; % Time stamp of the prior means, weights, and covariances
@@ -1240,6 +1243,7 @@ for ts = idx_start:(idx_end-1)
             close(f);
         end
   
+        %{
         if(abs(to - (t_end-interval)) < 1e-10) % At final time step possible
             % Save the a priori estimate particle cloud
             save('aPriori.mat', 'Xm_cloud');
@@ -1337,6 +1341,7 @@ for ts = idx_start:(idx_end-1)
             hold off;
             savefig(gcf, 'postClusteringDistribution.fig');
         end
+        %}
 
         % Update Step
         R_vv = [theta_f*pi/648000, 0; 0, theta_f*pi/648000].^2;
@@ -1806,8 +1811,12 @@ for ts = idx_start:(idx_end-1)
 
     if (idx_meas ~= 0)
         wsum = 0;
-        for k = 1:K
-            wsum = wsum + wp(k)*det(P_p{k});
+        if (K == 1)
+            wsum = det(P_p{k}); % No weightings required
+        else
+            for k = 1:K
+                wsum = wsum + wp(k)*det(P_p{k});
+            end
         end
         ent2(tau+2) = log(wsum);
     else
@@ -2417,11 +2426,14 @@ function [mu_p, P_p] = ekfUpdate(zk, H, R, mu_m, P_m, h)
     P_p = (P_p + P_p')/2;
 end
 
-function [mu_c, P_c] = ukfProp(t_int, interval, mu_p, P_p)
+function [mu_c, P_c, Xtruth] = ukfProp(t_int, interval, mu_p, P_p, Xm_truth)
     % UKF Propagation Step
     n = length(mu_p);
-    alpha = 1e-3; beta = 2; kappa = 0;
+    alpha = 0.5; beta = 2; kappa = 0;
     lambda = alpha^2 * (n + kappa) - n;
+
+    % First, let's reshape the posterior mean from the previous time step
+    mu_p = reshape(mu_p, [n 1]);
     
     % Ensure P_p is symmetric
     P_p = (P_p + P_p') / 2;
@@ -2435,9 +2447,9 @@ function [mu_c, P_c] = ukfProp(t_int, interval, mu_p, P_p)
     sigs = zeros(2*n+1, n);
     wm = [lambda / (n + lambda), repmat(0.5 / (n + lambda), 1, 2*n)];
     wc = wm;
-    wc(1) = wc(1) - (1 - alpha^2 + beta);
+    wc(1) = wc(1) + (1 - alpha^2 + beta);
     
-    sigs(1,:) = mu_p';
+    sigs(1,:) = reshape(mu_p, [length(mu_p) 1]);
     for i = 1:n
         sigs(i+1,:) = (mu_p + sqrt(n + lambda) * S(:,i))';
         sigs(i+1+n,:) = (mu_p - sqrt(n + lambda) * S(:,i))';
@@ -2447,6 +2459,7 @@ function [mu_c, P_c] = ukfProp(t_int, interval, mu_p, P_p)
     prop_sigs = zeros(size(sigs));
     for i = 1:size(sigs, 1)
         prop_sigs(i,:) = propagate(sigs(i,:), t_int, interval);
+        Xtruth = propagate(Xm_truth, t_int, interval);
     end
     
     % Compute predicted mean
@@ -2467,7 +2480,7 @@ end
 function [mu_p, P_p] = ukfUpdate(zk, R, mu_m, P_m, h)
     % UKF Update Step
     n = length(mu_m);
-    alpha = 1e-3; beta = 2; kappa = 0;
+    alpha = 0.5; beta = 2; kappa = 0;
     lambda = alpha^2 * (n + kappa) - n;
     
     % Ensure P_m is symmetric
@@ -2482,7 +2495,7 @@ function [mu_p, P_p] = ukfUpdate(zk, R, mu_m, P_m, h)
     sigs = zeros(2*n+1, n);
     wm = [lambda / (n + lambda), repmat(0.5 / (n + lambda), 1, 2*n)];
     wc = wm;
-    wc(1) = wc(1) - (1 - alpha^2 + beta);
+    wc(1) = wc(1) + (1 - alpha^2 + beta);
     
     sigs(1,:) = mu_m';
     for i = 1:n

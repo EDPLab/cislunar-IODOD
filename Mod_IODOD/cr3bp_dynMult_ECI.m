@@ -20,11 +20,24 @@ time2hr = 4.342*24; % Hours per non-dimensionalized time
 vel2kms = dist2km/(time2hr*60*60); % Kms per non-dimensionalized velocity
 
 Nt = 2; % Number of targets
-Q0 = diag([500/dist2km, 0, 0, 0, 0, 0].^2);
+sd = 5000/dist2km; % Separation distance from first target, in nd units
+Q0 = diag([sd, 0, 0, 0, 0, 0].^2);
 % Q0_dim = diag([500, 0, 0, 0, 0, 0].^2); % Variances in km and km/s
 % Q0 = Q0_dim ./ ([dist2km, 1, 1, 1, 1, 1]' * [dist2km, 1, 1, 1, 1, 1]);
 
-X0 = mvnrnd(x0, Q0, Nt);
+X0 = zeros(Nt, length(x0));
+X0(1,:) = mvnrnd(x0, Q0);
+
+for j = 2:Nt
+    n_p = length(x0(1:2));
+    v = randn(n_p,1);
+    v = v/norm(v);
+
+    X0(j,:) = X0(1,:); % Keep velocities and CR3BP z-direction same
+    X0(j,1:n_p) = X0(1,1:n_p)' + sd*v;
+end
+
+% X0 = mvnrnd(x0, Q0, Nt);
 X0_0 = squeeze(X0);
 
 % Define time span
@@ -175,7 +188,7 @@ surf(ReX, ReY, ReZ)
 savefig(gcf, 'trajectory_ECI.fig')
 saveas(gcf, 'trajectory_ECI.png')
 
-% Plot the position parametrically w.r.t. time
+% Plot the position paxrametrically w.r.t. time
 
 figure(2)
 subplot(3,1,1)
