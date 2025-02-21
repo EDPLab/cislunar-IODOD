@@ -1,4 +1,4 @@
-figUKF = open("../MiscSims/Simulation 3 (Orbit 237; Pure UKF)/Entropy.fig");
+figUKF = open("../MiscSims/9-2 Resonant NRHO (5 ObsPerTrack; UKF)/Entropy.fig");
 % figENKF = gcf;
 
 XData = cell(3,1);
@@ -10,39 +10,13 @@ dataObjs = axObjs.Children;
 lineObj = axObjs(1).Children;
 
 % Extract X and Y data from the line object
-XData{3} = lineObj.XData;
-YData{3} = lineObj.YData;
+XData{1} = lineObj.XData;
+YData{1} = lineObj.YData;
 
-figPGM = open("../MiscSims/Simulation 2 (Orbit 237; Pure PGM)/Entropy.fig");
-hold on;
-plot(XData{3}, YData{3})
-title('Entropy Comparison (PGM vs. EnKF vs. UKF)')
-legend('PGM', 'EnKF', 'UKF')
-hold off;
-
+figPGM = open("../MiscSims/9-2 Resonant NRHO (PGM; 5 ObsPerPass With Observation Streaks)/Entropy.fig");;
 % figPGM = gcf;
 
 axObjs = figPGM.Children;
-dataObjs1 = axObjs.Children;
-% dataObjs2 = axObjs{2}.Children;
-
-for i = 1:length(axObjs)
-    lineObjs = findall(axObjs(i), 'Type', 'Line'); % Find actual line objects
-    if ~isempty(lineObjs)
-        XData{i} = lineObjs(1).XData;
-        YData{i} = lineObjs(1).YData;
-    end
-end
-
-% Extract X and Y data from the line object
-% XData{1} = XData{2};
-% YData{1} = YData{2};
-
-%%
-figENKF = open("../MiscSims/Simulation 1 (Orbit 237; Pure EnKF)/Entropy.fig");
-% figENKF = gcf;
-
-axObjs = figENKF.Children;
 dataObjs = axObjs.Children;
 
 lineObj = axObjs(1).Children;
@@ -51,10 +25,10 @@ lineObj = axObjs(1).Children;
 XData{2} = lineObj.XData;
 YData{2} = lineObj.YData;
 
-figUKF = open("../MiscSims/Simulation 3 (Orbit 237; Pure UKF)/Entropy.fig");
+figEnKF = open("../MiscSims/9-2 Resonant NRHO (5 ObsPerPass; EnKF)/Entropy.fig");
 % figENKF = gcf;
 
-axObjs = figENKF.Children;
+axObjs = figEnKF.Children;
 dataObjs = axObjs.Children;
 
 lineObj = axObjs(1).Children;
@@ -67,8 +41,9 @@ figure(4)
 plot(XData{1}, YData{1}, XData{2}, YData{2}, XData{3}, YData{3})
 xlabel('Filter Time Step #')
 ylabel('Filter Entropy')
-title('Entropy Comparison (PGM vs. EnKF vs. UKF)')
-legend('PGM', 'EnKF', 'UKF')
+title('Entropy Comparison (UKF vs. PGM vs. EnKF)')
+legend('UKF', 'PGM', 'EnKF')
+savefig(gcf, "entropyComp_9-2NRHO.fig");
 
 %{
 dist2km = 384400; % Kilometers per non-dimensionalized distance

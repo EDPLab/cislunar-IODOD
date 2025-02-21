@@ -20,7 +20,7 @@ time2hr = 4.342*24; % Hours per non-dimensionalized time
 vel2kms = dist2km/(time2hr*60*60); % Kms per non-dimensionalized velocity
 
 Nt = 2; % Number of targets
-sd = 5000/dist2km; % Separation distance from first target, in nd units
+sd = 4000/dist2km; % Separation distance from first target, in nd units
 Q0 = diag([sd, 0, 0, 0, 0, 0].^2);
 % Q0_dim = diag([500, 0, 0, 0, 0, 0].^2); % Variances in km and km/s
 % Q0 = Q0_dim ./ ([dist2km, 1, 1, 1, 1, 1]' * [dist2km, 1, 1, 1, 1, 1]);
